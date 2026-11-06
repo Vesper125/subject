@@ -253,6 +253,14 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
 .bn.pic{position:relative;overflow:hidden;border-radius:18px;font-size:0}
 .bn.pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .bn.pic b{position:absolute;left:4px;bottom:4px;display:grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border-radius:999px;background:hsl(var(--bh) 85% 84%);color:var(--navy);font-family:var(--serif);font-size:18px;font-weight:700;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.boxc.case .bn,.bn.sq{border-radius:18px}
+.bn.sm.sq{border-radius:14px}
+.pk-chip.case .c{border-radius:10px}
+.thumbs .kid{font-family:var(--serif);font-weight:700;font-size:19px;background:hsl(var(--bh) 70% 68% / .28);border:1.5px solid hsl(var(--bh) 85% 82%)}
+.th .cm{font-family:var(--serif);font-weight:700;font-size:28px;color:#fff}
+.th.case{background:hsl(var(--ch,210) 70% 68% / .28);border:1.5px solid hsl(var(--ch,210) 85% 82%)}
+.sec-h{font-size:13px;color:var(--muted);margin:14px 4px 8px}
+.par{margin:0 0 14px}
 .thumbs .dth{box-shadow:0 0 0 2px hsl(var(--bh) 85% 82%)}
 .thumbs .dth::after{content:"✓";position:absolute;right:2px;bottom:0;font-size:12px;font-weight:700;color:#fff;text-shadow:0 0 4px rgba(0,0,0,.8)}
 .pk-done{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-radius:22px;padding:10px 12px 10px 16px;margin:-4px 0 12px;font-size:14px}
@@ -352,6 +360,7 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
       <button class="btn" type="button" data-qbox="suitcase">＋ 行李箱</button>
       <button class="btn" type="button" data-qbox="box">＋ 纸箱</button>
       <button class="btn" type="button" data-qbox="bag">＋ 背包</button>
+      <button class="btn" type="button" data-qbox="case">＋ 盒子</button>
       <button class="ib" type="button" id="copyAll">复制全部清单</button>
     </div>
     <div id="boxesBody"></div>
@@ -425,6 +434,7 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
       <button class="btn" type="button" id="bxCopy">复制清单</button>
       <button class="btn" type="button" id="bxEdit">编辑</button>
     </div>
+    <div class="par" id="bxPar"></div>
     <div class="bph" id="bxPh"></div>
     <div id="bxList"></div>
   </div>
@@ -435,11 +445,12 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="beT" tabindex="-1">
     <div class="sh-h"><h2 id="beT">添加箱子</h2><button class="x" type="button" data-close="beOv" aria-label="关闭">✕</button></div>
     <div class="row2">
-      <div style="width:96px"><label class="fl" for="bNo">编号</label><input class="inp" id="bNo" type="number" min="1" max="99" inputmode="numeric"></div>
+      <div style="width:96px"><label class="fl" for="bNo">编号</label><input class="inp" id="bNo" maxlength="2" autocomplete="off" inputmode="numeric"></div>
       <div style="flex:1 1 200px"><label class="fl" for="bName">名字</label><input class="inp" id="bName" maxlength="24" placeholder="例如 28 寸灰色行李箱" autocomplete="off"></div>
     </div>
     <div class="fl">类型</div>
     <div class="chs" id="bKinds"></div>
+    <div id="bParRow" hidden><div class="fl">放在哪个箱子里</div><div class="chs" id="bPar"></div></div>
     <div class="row2">
       <div style="width:150px"><label class="fl" for="bW">重量 kg（选填）</label><input class="inp" id="bW" type="number" min="0" max="99" step="0.1" inputmode="decimal" placeholder="称完再填"></div>
       <div style="flex:1 1 200px"><label class="fl" for="bNote">备注</label><input class="inp" id="bNote" maxlength="60" placeholder="选填，比如：托运 / 随身 / 寄存" autocomplete="off"></div>
@@ -531,7 +542,7 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
     {key:'docs',    name:'证件文件', ico:'📄'},
     {key:'other',   name:'其他', ico:'📦'}
   ];
-  const KINDS = { suitcase:{ico:'🧳', name:'行李箱'}, box:{ico:'📦', name:'纸箱'}, bag:{ico:'🎒', name:'背包'} };
+  const KINDS = { suitcase:{ico:'🧳', name:'行李箱'}, box:{ico:'📦', name:'纸箱'}, bag:{ico:'🎒', name:'背包'}, case:{ico:'🗃️', name:'盒子'} };
   const BOX_HUES = [205, 24, 145, 275, 48, 335, 178, 98, 232, 8];
   const ST = {
     packed: {name:'已装入', c:'var(--s-packed)'},
@@ -551,16 +562,29 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
   const catOrder = k => { const i = allCats().findIndex(c => c.key === k); return i < 0 ? 999 : i; };
   const boxById = id => id ? boxes.find(b => b.id === id) || null : null;
   const sortedBoxes = () => boxes.slice().sort((a, b) => (a.no || 0) - (b.no || 0));
-  const boxHue = b => BOX_HUES[(((b && b.no) || 1) - 1) % BOX_HUES.length];
+  // 箱子 (suitcase/box/bag) are numbered 1号 2号…; 盒子 (case) are lettered A盒 B盒… and can sit inside a 箱子.
+  const isCase = b => !!b && b.kind === 'case';
+  const letter = n => { let s = ''; n = Math.max(1, n | 0); while (n > 0){ n--; s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26); } return s; };
+  const letterNum = v => { v = String(v || '').trim().toUpperCase(); if (!/^[A-Z]{1,2}$/.test(v)) return 0; let n = 0; for (const ch of v) n = n * 26 + ch.charCodeAt(0) - 64; return n; };
+  const boxMark = b => isCase(b) ? letter(b.no) : String(b.no);
+  const boxLabel = b => isCase(b) ? `${letter(b.no)}盒` : `${b.no}号`;
   const boxTitle = b => b.name || (KINDS[b.kind] || KINDS.suitcase).name;
+  const boxFull = b => isCase(b) && !b.name ? boxLabel(b) : `${boxLabel(b)} · ${boxTitle(b)}`;
+  const outerBoxes = () => sortedBoxes().filter(b => !isCase(b));
+  const caseBoxes = () => sortedBoxes().filter(isCase);
+  const parentOf = c => { if (!isCase(c)) return null; const p = boxById(c.parent); return p && !isCase(p) ? p : null; };
+  const kidsOf = b => isCase(b) ? [] : caseBoxes().filter(c => c.parent === b.id);
+  const boxHue = b => { if (isCase(b)){ const p = parentOf(b); return p ? boxHue(p) : 200; } return BOX_HUES[(((b && b.no) || 1) - 1) % BOX_HUES.length]; };
   const nextNo = () => items.reduce((m, i) => Math.max(m, i.no || 0), 0) + 1;
-  const nextBoxNo = () => { const used = new Set(boxes.map(b => b.no)); let n = 1; while (used.has(n)) n++; return n; };
+  const nextBoxNo = asCase => { const used = new Set(boxes.filter(b => isCase(b) === !!asCase).map(b => b.no)); let n = 1; while (used.has(n)) n++; return n; };
+  function locShort(c){ const p = parentOf(c); return p ? `${p.no}号·${boxLabel(c)}` : boxLabel(c); }
   const byCatNo = (a, b) => catOrder(catOf(a.cat).key) - catOrder(catOf(b.cat).key) || (a.no || 0) - (b.no || 0);
   function st(it){ if (it.skip) return 'skip'; if (!boxById(it.box)) return 'none'; return it.packed ? 'packed' : 'planned'; }
   const itemLabel = it => `${pad3(it.no)} ${it.name || '未命名'}`;
   function matchQ(it, qq){
     const c = catOf(it.cat), b = boxById(it.box);
-    const hay = [it.name, it.note, c.name, pad3(it.no), String(it.no), b ? b.no + '号' : '', b ? boxTitle(b) : '', it.skip ? '不带走' : ''].join(' ').toLowerCase();
+    const p = parentOf(b);
+    const hay = [it.name, it.note, c.name, pad3(it.no), String(it.no), b ? boxLabel(b) + ' ' + boxTitle(b) : '', p ? boxLabel(p) + ' ' + boxTitle(p) : '', it.skip ? '不带走' : ''].join(' ').toLowerCase();
     return qq.split(/\s+/).filter(Boolean).every(w => hay.includes(w));
   }
 
@@ -738,7 +762,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     $('hSeg').innerHTML = total ? ['packed', 'planned', 'none', 'skip'].map(k => c[k] ? `<i style="width:${c[k] / total * 100}%;background:${ST[k].c}"></i>` : '').join('') : '';
     $('hStats').innerHTML = ['packed', 'planned', 'none', 'skip'].map(k =>
       `<button type="button" class="stat" data-stat="${k}" style="--c:${ST[k].c}"><span class="d"></span>${ST[k].name}<b>${c[k]}</b></button>`).join('') +
-      `<button type="button" class="stat" data-tabgo="boxes" style="--c:#ffffff"><span class="d"></span>箱子<b>${boxes.length}</b></button>`;
+      `<button type="button" class="stat" data-tabgo="boxes" style="--c:#ffffff"><span class="d"></span>箱子<b>${outerBoxes().length}</b>${caseBoxes().length ? ` · 盒子<b>${caseBoxes().length}</b>` : ''}</button>`;
     $('sub').textContent = total ? `共 ${total} 件 · 编号 ${pad3(1)} 到 ${pad3(nextNo() - 1)}` : '拍照登记 · 按类分好 · 编号装箱';
   }
 
@@ -747,7 +771,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     if (s === 'skip') return '<span class="loc skip">不带走</span>';
     if (s === 'none') return '<span class="loc none">未分配</span>';
     const b = boxById(it.box);
-    return `<span class="loc ${s}" style="--bh:${boxHue(b)}">${b.no}号${s === 'packed' ? ' ✓' : ' · 待放'}</span>`;
+    return `<span class="loc ${s}" style="--bh:${boxHue(b)}">${locShort(b)}${s === 'packed' ? ' ✓' : ' · 待放'}</span>`;
   }
   function card(it){
     const b = !it.skip && boxById(it.box);
@@ -795,38 +819,52 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
 
   function boxStats(b){
     const its = items.filter(i => i.box === b.id && !i.skip);
-    return {its, packed: its.filter(i => i.packed).length};
+    const kids = kidsOf(b), kp = kids.filter(c => c.packed).length, packed = its.filter(i => i.packed).length;
+    return {its, packed, kids, kp, total: its.length + kids.length, done: packed + kp};
+  }
+  function caseWhere(c){ const p = parentOf(c); return p ? `${c.packed ? '已放进' : '计划放进'} ${boxLabel(p)}` : '还没放进箱子'; }
+  function countText(s){ return s.total ? `已放入 ${[s.its.length ? `${s.packed}/${s.its.length} 件` : '', s.kids.length ? `${s.kp}/${s.kids.length} 个盒子` : ''].filter(Boolean).join(' · ')}` : '还是空的'; }
+  function markHTML(b, cls){
+    return b.photo ? `<span class="bn pic${cls || ''}"><img src="${esc(photoURL(b.photo))}" alt="" loading="lazy"><b>${esc(boxMark(b))}</b></span>`
+      : `<span class="bn${isCase(b) ? ' sq' : ''}${cls || ''}">${esc(boxMark(b))}</span>`;
+  }
+  function boxCard(b){
+    const s = boxStats(b), k = KINDS[b.kind] || KINDS.suitcase, pct = s.total ? s.done / s.total * 100 : 0;
+    const meta = [k.ico + ' ' + k.name, isCase(b) ? caseWhere(b) : '', b.weight ? b.weight + ' kg' : '', b.note || ''].filter(Boolean).join(' · ');
+    const shown = s.its.slice().sort(byCatNo).slice(0, 7);
+    const th = (b.donePhoto ? `<span class="dth" title="装完的样子"><img src="${esc(photoURL(b.donePhoto))}" alt="装完的样子" loading="lazy"></span>` : '') +
+      s.kids.map(c => `<span class="kid" title="${esc(boxFull(c))}">${c.photo ? `<img src="${esc(photoURL(c.photo))}" alt="" loading="lazy">` : esc(boxMark(c))}</span>`).join('') +
+      shown.map(i => `<span>${thumb(i)}</span>`).join('') + (s.its.length > 7 ? `<span class="more-n">+${s.its.length - 7}</span>` : '');
+    return `<button type="button" class="boxc glass${isCase(b) ? ' case' : ''}" data-box="${esc(b.id)}" style="--bh:${boxHue(b)}">
+      ${markHTML(b)}
+      <span><span class="bt">${esc(boxFull(b))}</span><span class="bs">${esc(meta)}</span>
+      <span class="pbar"><i style="width:${pct}%"></i></span>
+      <span class="bs">${countText(s)}</span>
+      ${th ? `<span class="thumbs">${th}</span>` : ''}</span></button>`;
   }
   function renderBoxes(){
-    const bs = sortedBoxes(), c = counts();
-    if (!bs.length){
+    const outs = outerBoxes(), cs = caseBoxes(), c = counts();
+    if (!boxes.length){
       $('boxesBody').innerHTML = `<section class="start glass"><h2>先给箱子编号</h2>
-        <p>在每个行李箱、纸箱上贴张纸写好 1、2、3，然后用上面的按钮添加，编号会自动对上。名字和重量之后可以再改。</p></section>`;
+        <p>在每个行李箱、纸箱上贴张纸写好 1、2、3，然后用上面的按钮添加，编号会自动对上。小一点的收纳盒、鞋盒用「＋ 盒子」，它们按 A、B、C 编号，可以放进箱子里。</p></section>`;
       return;
     }
-    $('boxesBody').innerHTML = `<div class="boxes">${bs.map(b => {
-      const {its, packed} = boxStats(b), k = KINDS[b.kind] || KINDS.suitcase, pct = its.length ? packed / its.length * 100 : 0;
-      const shown = its.slice().sort(byCatNo).slice(0, 7);
-      const meta = [k.ico + ' ' + k.name, b.weight ? b.weight + ' kg' : '', b.note || ''].filter(Boolean).join(' · ');
-      return `<button type="button" class="boxc glass" data-box="${esc(b.id)}" style="--bh:${boxHue(b)}">
-        ${b.photo ? `<span class="bn pic"><img src="${esc(photoURL(b.photo))}" alt="" loading="lazy"><b>${b.no}</b></span>` : `<span class="bn">${b.no}</span>`}
-        <span><span class="bt">${b.no}号 · ${esc(boxTitle(b))}</span><span class="bs">${esc(meta)}</span>
-        <span class="pbar"><i style="width:${pct}%"></i></span>
-        <span class="bs">${its.length ? `已放入 ${packed} / ${its.length} 件` : '还是空的'}</span>
-        ${shown.length || b.donePhoto ? `<span class="thumbs">${b.donePhoto ? `<span class="dth" title="装完的样子"><img src="${esc(photoURL(b.donePhoto))}" alt="装完的样子" loading="lazy"></span>` : ''}${shown.map(i => `<span>${thumb(i)}</span>`).join('')}${its.length > 7 ? `<span class="more-n">+${its.length - 7}</span>` : ''}</span>` : ''}</span></button>`;
-    }).join('')}</div>` +
-    (c.none ? `<div class="unas glass"><span>还有 <b>${c.none}</b> 件没分配箱子</span><button type="button" class="btn" data-tabgo="pack">去装箱</button></div>` : '');
+    const loose = cs.filter(x => !parentOf(x)).length;
+    $('boxesBody').innerHTML =
+      (outs.length ? `<div class="boxes">${outs.map(boxCard).join('')}</div>` : '') +
+      (cs.length ? `<div class="grp-h">盒子 · ${cs.length}</div><div class="boxes">${cs.map(boxCard).join('')}</div>` : '') +
+      (c.none || loose ? `<div class="unas glass"><span>${[c.none ? `还有 <b>${c.none}</b> 件东西没分配` : '', loose ? `<b>${loose}</b> 个盒子还没放进箱子` : ''].filter(Boolean).join('，')}</span><button type="button" class="btn" data-tabgo="pack">去装箱</button></div>` : '');
   }
 
   function renderPack(){
-    const el = $('p-pack'), bs = sortedBoxes();
-    if (!bs.length){
-      el.innerHTML = `<section class="start glass"><h2>先添加箱子</h2><p>给每个行李箱或纸箱编个号，然后就可以在这里一件件放进去，放一件点一下。</p>
-        <div class="sh-acts"><button class="btn btn-primary" type="button" data-qbox="suitcase">＋ 行李箱</button><button class="btn" type="button" data-qbox="box">＋ 纸箱</button><button class="btn" type="button" data-qbox="bag">＋ 背包</button></div></section>`;
+    const el = $('p-pack'), all = [...outerBoxes(), ...caseBoxes()];
+    if (!all.length){
+      el.innerHTML = `<section class="start glass"><h2>先添加箱子</h2><p>给每个行李箱或纸箱编个号，然后就可以在这里一件件放进去，放一件点一下。收纳盒、鞋盒这类可以加成「盒子」，先装东西，再把盒子放进箱子。</p>
+        <div class="sh-acts"><button class="btn btn-primary" type="button" data-qbox="suitcase">＋ 行李箱</button><button class="btn" type="button" data-qbox="box">＋ 纸箱</button><button class="btn" type="button" data-qbox="bag">＋ 背包</button><button class="btn" type="button" data-qbox="case">＋ 盒子</button></div></section>`;
       return;
     }
-    if (!boxById(cur)) cur = bs[0].id;
-    const b = boxById(cur), h = boxHue(b), {its, packed} = boxStats(b);
+    if (!boxById(cur)) cur = all[0].id;
+    const b = boxById(cur), h = boxHue(b), S = boxStats(b), L = boxLabel(b);
     let todo = items.filter(i => !i.skip && !(i.packed && boxById(i.box)));
     const cats = [...new Set(todo.map(i => catOf(i.cat).key))].sort((x, y) => catOrder(x) - catOrder(y));
     if (pkCat !== 'all' && !cats.includes(pkCat)) pkCat = 'all';
@@ -834,27 +872,39 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     const g1 = todo.filter(i => i.box === b.id).sort(byCatNo);
     const g2 = todo.filter(i => !boxById(i.box)).sort(byCatNo);
     const g3 = todo.filter(i => boxById(i.box) && i.box !== b.id).sort(byCatNo);
-    const done = its.filter(i => i.packed).sort(byCatNo);
+    const ctodo = isCase(b) || pkCat !== 'all' ? [] : caseBoxes().filter(c => !(c.packed && parentOf(c)))
+      .sort((x, y) => ((x.parent === b.id ? 0 : !parentOf(x) ? 1 : 2) - (y.parent === b.id ? 0 : !parentOf(y) ? 1 : 2)) || x.no - y.no);
+    const done = S.its.filter(i => i.packed).sort(byCatNo), cdone = S.kids.filter(c => c.packed);
     const grp = (title, arr) => arr.length ? `<div class="grp-h">${title} · ${arr.length}</div><div class="rows">${arr.map(i => packRow(i, b, 'todo')).join('')}</div>` : '';
-    el.innerHTML = `<div class="pk-chips" role="group" aria-label="选择正在装的箱子">${bs.map(x => { const s = boxStats(x);
-        return `<button type="button" class="pk-chip" data-cur="${esc(x.id)}" aria-pressed="${x.id === b.id}" style="--bh:${boxHue(x)}"><span class="c">${x.no}</span>${esc(boxTitle(x))}<small>${s.packed}/${s.its.length}</small></button>`; }).join('')}</div>
-      <section class="pk-head glass" style="--bh:${h}"><span class="bn sm">${b.no}</span><div class="m"><div class="k">正在装</div><div class="t">${b.no}号 · ${esc(boxTitle(b))}</div><div class="k">已放入 ${packed} 件${its.length - packed ? ` · 还有 ${its.length - packed} 件计划放这里` : ''}</div></div>
+    const chip = x => { const s = boxStats(x);
+      return `<button type="button" class="pk-chip${isCase(x) ? ' case' : ''}" data-cur="${esc(x.id)}" aria-pressed="${x.id === b.id}" style="--bh:${boxHue(x)}"><span class="c">${esc(boxMark(x))}</span>${esc(isCase(x) ? boxLabel(x) + (x.name ? ' ' + x.name : '') : boxTitle(x))}<small>${s.done}/${s.total}</small></button>`; };
+    el.innerHTML = `<div class="pk-chips" role="group" aria-label="选择正在装的箱子或盒子">${all.map(chip).join('')}</div>
+      <section class="pk-head glass" style="--bh:${h}">${markHTML(b, ' sm')}<div class="m"><div class="k">正在装${isCase(b) ? ' · ' + esc(caseWhere(b)) : ''}</div><div class="t">${esc(boxFull(b))}</div><div class="k">${S.total ? countText(S) : '还是空的'}${S.total - S.done ? ` · 还有 ${S.total - S.done} 样计划放这里` : ''}</div></div>
         <button type="button" class="ib" data-box="${esc(b.id)}">看清单</button></section>
-      ${packed && packed === its.length ? `<div class="pk-done glass">${b.donePhoto
-        ? `<button type="button" class="pv-th" data-view="donePhoto" data-sbox="${esc(b.id)}" aria-label="看 ${b.no}号装完的照片"><img src="${esc(photoURL(b.donePhoto))}" alt=""></button><span class="m">${b.no}号装完了，照片已存</span><label class="btn" for="bxCam" tabindex="0" data-keyclick data-slot="donePhoto" data-sbox="${esc(b.id)}">重拍</label>`
-        : `<span class="m">${b.no}号里的东西都放好了，合上之前拍一张？</span><label class="btn btn-primary" for="bxCam" tabindex="0" data-keyclick data-slot="donePhoto" data-sbox="${esc(b.id)}">📷 拍装完的样子</label>`}</div>` : ''}
+      ${S.total && S.done === S.total ? `<div class="pk-done glass">${b.donePhoto
+        ? `<button type="button" class="pv-th" data-view="donePhoto" data-sbox="${esc(b.id)}" aria-label="看 ${L}装完的照片"><img src="${esc(photoURL(b.donePhoto))}" alt=""></button><span class="m">${L}装完了，照片已存</span><label class="btn" for="bxCam" tabindex="0" data-keyclick data-slot="donePhoto" data-sbox="${esc(b.id)}">重拍</label>`
+        : `<span class="m">${L}里的东西都放好了，合上之前拍一张？</span><label class="btn btn-primary" for="bxCam" tabindex="0" data-keyclick data-slot="donePhoto" data-sbox="${esc(b.id)}">📷 拍装完的样子</label>`}</div>` : ''}
       ${cats.length > 1 ? `<div class="row-scroll" aria-label="按分类筛选"><button type="button" class="fchip" data-pkcat="all" aria-pressed="${pkCat === 'all'}">全部</button>${cats.map(k => { const c = catOf(k);
         return `<button type="button" class="fchip" data-pkcat="${k}" aria-pressed="${pkCat === k}">${esc(c.ico)} ${esc(c.name)}</button>`; }).join('')}</div>` : ''}
-      ${todo.length ? grp(`计划放进 ${b.no}号的`, g1) + grp('还没分配的', g2) + grp('计划放别的箱子', g3)
-        : `<div class="empty">${items.length ? '没有要装的东西了 👏' : '还没有登记物品，先点右下角「＋ 物品」拍一件'}</div>`}
-      ${done.length ? `<div class="done-sec"><div class="grp-h">已经放进 ${b.no}号 · ${done.length}</div><div class="rows">${done.map(i => packRow(i, b, 'done')).join('')}</div></div>` : ''}`;
+      ${ctodo.length ? `<div class="grp-h">要放进箱子的盒子 · ${ctodo.length}</div><div class="rows">${ctodo.map(c => caseRow(c, b, 'todo')).join('')}</div>` : ''}
+      ${todo.length ? grp(`计划放进 ${L}的`, g1) + grp('还没分配的', g2) + grp('计划放别处的', g3)
+        : ctodo.length ? '' : `<div class="empty">${items.length ? '没有要装的东西了 👏' : '还没有登记物品，先点右下角「＋ 物品」拍一件'}</div>`}
+      ${done.length || cdone.length ? `<div class="done-sec"><div class="grp-h">已经放进 ${L} · ${done.length + cdone.length}</div><div class="rows">${cdone.map(c => caseRow(c, b, 'done')).join('')}${done.map(i => packRow(i, b, 'done')).join('')}</div></div>` : ''}`;
   }
   function packRow(it, b, mode){
     const c = catOf(it.cat), ob = boxById(it.box);
-    const info = [c.ico + ' ' + c.name, mode === 'todo' && ob && ob.id !== b.id ? `原计划 ${ob.no}号` : '', it.note || ''].filter(Boolean).join(' · ');
+    const info = [c.ico + ' ' + c.name, mode === 'todo' && ob && ob.id !== b.id ? `原计划 ${locShort(ob)}` : '', it.note || ''].filter(Boolean).join(' · ');
     return `<div class="pr" style="--bh:${boxHue(b)}"><span class="th">${thumb(it)}</span>
       <button type="button" class="pr-m" data-item="${esc(it.id)}"><span class="pr-t"><span class="nn">${pad3(it.no)}</span> ${it.name ? esc(it.name) : '<span class="un">未命名</span>'}${it.qty > 1 ? ` ×${it.qty}` : ''}</span><span class="pr-s">${esc(info)}</span></button>
-      ${mode === 'todo' ? `<button type="button" class="put" data-put="${esc(it.id)}">放进 ${b.no}号</button>` : `<button type="button" class="out" data-out="${esc(it.id)}">拿出来</button>`}</div>`;
+      ${mode === 'todo' ? `<button type="button" class="put" data-put="${esc(it.id)}">放进 ${boxLabel(b)}</button>` : `<button type="button" class="out" data-out="${esc(it.id)}">拿出来</button>`}</div>`;
+  }
+  function caseThumb(c){ return `<span class="th case" style="--ch:${boxHue(c)}">${c.photo ? `<img src="${esc(photoURL(c.photo))}" alt="" loading="lazy">` : `<span class="cm">${esc(boxMark(c))}</span>`}</span>`; }
+  function caseRow(c, b, mode){
+    const s = boxStats(c), p = parentOf(c);
+    const info = ['🗃️ 盒子', s.its.length ? `装了 ${s.its.length} 件` : '还是空的', mode === 'todo' && p && p.id !== b.id ? `原计划 ${boxLabel(p)}` : ''].filter(Boolean).join(' · ');
+    return `<div class="pr" style="--bh:${boxHue(b)}">${caseThumb(c)}
+      <button type="button" class="pr-m" data-box="${esc(c.id)}"><span class="pr-t">${esc(boxFull(c))}</span><span class="pr-s">${esc(info)}</span></button>
+      ${mode === 'todo' ? `<button type="button" class="put" data-putbox="${esc(c.id)}">放进 ${boxLabel(b)}</button>` : `<button type="button" class="out" data-outbox="${esc(c.id)}">拿出来</button>`}</div>`;
   }
 
   /* ---------- tabs & global clicks ---------- */
@@ -868,11 +918,11 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
   $('q').addEventListener('input', e => { q = e.target.value; renderItems(); });
 
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-item],[data-addcat],[data-box],[data-put],[data-out],[data-cur],[data-fcat],[data-fst],[data-pkcat],[data-stat],[data-tabgo],[data-qbox],[data-batch],[data-close],[data-tg],[data-view],[data-unslot],[data-snap],#aiAll');
+    const t = e.target.closest('[data-item],[data-addcat],[data-box],[data-put],[data-out],[data-cur],[data-fcat],[data-fst],[data-pkcat],[data-stat],[data-tabgo],[data-qbox],[data-batch],[data-close],[data-tg],[data-view],[data-unslot],[data-snap],[data-putbox],[data-outbox],[data-tgb],[data-par],#aiAll');
     if (!t) return;
     const d = t.dataset;
     if (d.close){ closeSheet(d.close); return; }
-    if (d.view){ const b = boxById(d.sbox); if (b && b[d.view]) openViewer(photoURL(b[d.view]), `${b.no}号 · ${SLOTS[d.view]}`); return; }
+    if (d.view){ const b = boxById(d.sbox); if (b && b[d.view]) openViewer(photoURL(b[d.view]), `${boxLabel(b)} · ${SLOTS[d.view]}`); return; }
     if (d.snap){ slotTarget = {box: d.sbox, slot: d.snap}; $('bxCam').click(); return; }
     if (d.unslot){ unslot(d.sbox, d.unslot); return; }
     if (d.item != null){ openItem(d.item); return; }
@@ -881,6 +931,10 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     if (d.put){ putIn(d.put); return; }
     if (d.out){ const it = items.find(x => x.id === d.out); if (it) safe(() => patch('items', it.id, {packed:false}), `${itemLabel(it)} 拿出来了`); return; }
     if (d.tg){ const it = items.find(x => x.id === d.tg); if (it) safe(() => patch('items', it.id, {packed: !it.packed})); return; }
+    if (d.putbox){ putBox(d.putbox); return; }
+    if (d.outbox){ const c = boxById(d.outbox); if (c) safe(() => patch('boxes', c.id, {packed:false}), `${boxLabel(c)} 拿出来了`); return; }
+    if (d.tgb){ const c = boxById(d.tgb); if (c) safe(() => patch('boxes', c.id, {packed: !c.packed})); return; }
+    if (d.par != null){ const c = boxById(openBoxId); if (c && isCase(c) && (c.parent || '') !== d.par) safe(() => patch('boxes', c.id, {parent: d.par || null, packed: false})); return; }
     if (d.cur){ cur = d.cur; lsSet(LSK.cur, cur); renderPack(); return; }
     if (d.fcat){ fCat = d.fcat; renderItems(); return; }
     if (d.fst){ fSt = d.fst; renderItems(); return; }
@@ -906,7 +960,13 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     const it = items.find(x => x.id === id), b = boxById(cur); if (!it || !b) return;
     const prev = {box: it.box || null, packed: !!it.packed, skip: !!it.skip};
     safe(() => patch('items', id, {box: b.id, packed: true, skip: false}));
-    toast(`${itemLabel(it)} → ${b.no}号 ✓`, {label:'撤销', fn: () => safe(() => patch('items', id, prev))});
+    toast(`${itemLabel(it)} → ${boxLabel(b)} ✓`, {label:'撤销', fn: () => safe(() => patch('items', id, prev))});
+  }
+  function putBox(cid){
+    const c = boxById(cid), b = boxById(cur); if (!c || !b || isCase(b)) return;
+    const prev = {parent: c.parent || null, packed: !!c.packed};
+    safe(() => patch('boxes', cid, {parent: b.id, packed: true}));
+    toast(`${boxLabel(c)} → ${boxLabel(b)} ✓`, {label:'撤销', fn: () => safe(() => patch('boxes', cid, prev))});
   }
 
   /* ---------- sheets ---------- */
@@ -943,14 +1003,21 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     catch(e){ $('txT').textContent = title || '清单'; $('txBox').value = text; openSheet('txOv'); setTimeout(() => { $('txBox').focus(); $('txBox').select(); }, 60); }
   }
   function boxText(b){
-    const {its, packed} = boxStats(b), k = KINDS[b.kind] || KINDS.suitcase;
-    const head = `【${b.no}号 · ${boxTitle(b)}】${k.name}${b.weight ? ' · ' + b.weight + 'kg' : ''}${b.note ? ' · ' + b.note : ''}  已放入 ${packed}/${its.length}`;
-    const lines = its.slice().sort(byCatNo).map(i => `${pad3(i.no)} ${i.name || '未命名'}${i.qty > 1 ? ' ×' + i.qty : ''}（${catOf(i.cat).name}）${i.packed ? '' : ' 还没放'}`);
+    const s = boxStats(b), k = KINDS[b.kind] || KINDS.suitcase;
+    const line = (i, ind) => `${ind}${pad3(i.no)} ${i.name || '未命名'}${i.qty > 1 ? ' ×' + i.qty : ''}（${catOf(i.cat).name}）${i.packed ? '' : ' 还没放'}`;
+    const head = `【${boxFull(b)}】${isCase(b) ? caseWhere(b) : k.name}${b.weight ? ' · ' + b.weight + 'kg' : ''}${b.note ? ' · ' + b.note : ''}  ${countText(s)}`;
+    const lines = s.its.slice().sort(byCatNo).map(i => line(i, ''));
+    for (const c of s.kids){
+      const cs = boxStats(c);
+      lines.push(`▸ ${boxFull(c)}${c.packed ? '' : '（还没放进来）'}`);
+      cs.its.slice().sort(byCatNo).forEach(i => lines.push(line(i, '    ')));
+      if (!cs.its.length) lines.push('    （空）');
+    }
     return [head, ...(lines.length ? lines : ['（空）'])].join('\n');
   }
   $('copyAll').addEventListener('click', () => {
     const c = counts();
-    const parts = sortedBoxes().map(boxText);
+    const parts = [...outerBoxes(), ...caseBoxes().filter(x => !parentOf(x))].map(boxText);
     const none = items.filter(i => st(i) === 'none').sort(byCatNo);
     if (none.length) parts.push(['【还没分配】', ...none.map(i => `${pad3(i.no)} ${i.name || '未命名'}${i.qty > 1 ? ' ×' + i.qty : ''}`)].join('\n'));
     const skip = items.filter(i => i.skip).sort(byCatNo);
@@ -998,15 +1065,18 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
   }
   function destChips(sel, attr){
     return `<button type="button" class="ch" ${attr}="" aria-pressed="${sel === ''}">暂不分配</button>` +
-      sortedBoxes().map(b => `<button type="button" class="ch bx" ${attr}="${esc(b.id)}" style="--bh:${boxHue(b)}" aria-pressed="${sel === b.id}">${b.no}号<small>${esc(boxTitle(b))}</small></button>`).join('') +
+      outerBoxes().map(b => `<button type="button" class="ch bx" ${attr}="${esc(b.id)}" style="--bh:${boxHue(b)}" aria-pressed="${sel === b.id}">${b.no}号<small>${esc(boxTitle(b))}</small></button>`).join('') +
+      caseBoxes().map(c => { const p = parentOf(c);
+        return `<button type="button" class="ch bx" ${attr}="${esc(c.id)}" style="--bh:${boxHue(c)}" aria-pressed="${sel === c.id}">${boxLabel(c)}<small>${esc([c.name, p ? '在' + boxLabel(p) : ''].filter(Boolean).join(' · ') || '盒子')}</small></button>`; }).join('') +
       `<button type="button" class="ch dash" ${attr}="+new">＋ 新箱子</button>` +
+      `<button type="button" class="ch dash" ${attr}="+newcase">＋ 新盒子</button>` +
       `<button type="button" class="ch" ${attr}="skip" aria-pressed="${sel === 'skip'}">不带走</button>`;
   }
   function paintDest(){
     $('iDest').innerHTML = destChips(E.dest, 'data-idest');
     const b = boxById(E.dest);
     $('packedRow').hidden = !b;
-    if (b) $('packedRow').lastChild.textContent = ` 已经放进 ${b.no}号了`;
+    if (b) $('packedRow').lastChild.textContent = ` 已经放进 ${boxLabel(b)}了`;
   }
   $('iCats').addEventListener('click', e => {
     const c = e.target.closest('[data-icat]');
@@ -1027,7 +1097,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
   $('iDest').addEventListener('click', async e => {
     const c = e.target.closest('[data-idest]'); if (!c) return;
     let v = c.dataset.idest;
-    if (v === '+new'){ v = await quickBox('suitcase'); if (!v || !E) return; }
+    if (v === '+new' || v === '+newcase'){ v = await quickBox(v === '+new' ? 'suitcase' : 'case'); if (!v || !E) return; }
     E.dest = v; paintDest();
   });
   $('qMinus').addEventListener('click', () => { $('iQty').value = clamp((parseInt($('iQty').value, 10) || 1) - 1, 1, 999); });
@@ -1095,7 +1165,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
       } else {
         data.no = nextNo(); data.createdAt = Date.now();
         await put('items', lid(), data);
-        toast(`已登记 ${pad3(data.no)}${name ? ' ' + name : ''}${b ? ` → ${b.no}号` : ''}`);
+        toast(`已登记 ${pad3(data.no)}${name ? ' ' + name : ''}${b ? ` → ${boxLabel(b)}` : ''}`);
       }
       if (oldPhoto) dropPhoto(oldPhoto);
       if (more && E === ed){
@@ -1121,79 +1191,119 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
 
   /* ---------- boxes ---------- */
   async function quickBox(kind){
-    const no = nextBoxNo(), id = lid();
-    await safe(() => put('boxes', id, {no, name:'', kind, weight:null, note:'', photo:null, donePhoto:null, createdAt: Date.now()}), `已添加 ${no}号${KINDS[kind].name}`);
+    const asCase = kind === 'case', no = nextBoxNo(asCase), id = lid();
+    const data = {no, name:'', kind, weight:null, note:'', photo:null, donePhoto:null, parent:null, packed:false, createdAt: Date.now()};
+    await safe(() => put('boxes', id, data), `已添加 ${boxLabel(data)}${asCase ? '' : KINDS[kind].name}`);
     if (!cur){ cur = id; lsSet(LSK.cur, cur); }
     return boxById(id) ? id : null;
   }
   let openBoxId = null, BE = null;
-  function openBox(id){ if (!boxById(id)) return; openBoxId = id; renderBoxSheet(); openSheet('boxOv'); }
+  function openBox(id){ if (!boxById(id)) return; openBoxId = id; renderBoxSheet(); openSheet('boxOv'); $('boxOv').querySelector('.sheet').scrollTop = 0; }
   function renderBoxSheet(){
     const b = boxById(openBoxId);
     if (!b){ closeSheet('boxOv'); return; }
-    const {its, packed} = boxStats(b), k = KINDS[b.kind] || KINDS.suitcase;
+    const s = boxStats(b), k = KINDS[b.kind] || KINDS.suitcase, p = parentOf(b);
     $('boxOv').querySelector('.sheet').style.setProperty('--bh', boxHue(b));
-    $('bxN').textContent = b.no;
-    $('bxT').textContent = `${b.no}号 · ${boxTitle(b)}`;
-    $('bxS').textContent = [k.ico + ' ' + k.name, b.weight ? b.weight + ' kg' : '', b.note || '', `已放入 ${packed} / ${its.length} 件`].filter(Boolean).join(' · ');
+    $('bxN').textContent = boxMark(b); $('bxN').classList.toggle('sq', isCase(b));
+    $('bxT').textContent = boxFull(b);
+    $('bxS').textContent = [k.ico + ' ' + k.name, b.weight ? b.weight + ' kg' : '', b.note || '', countText(s)].filter(Boolean).join(' · ');
+    $('bxPack').textContent = isCase(b) ? '去装这个盒子' : '去装这个箱子';
+    $('bxPar').innerHTML = isCase(b) ? `<div class="sec-h">放在哪个箱子里</div><div class="chs">` +
+        `<button type="button" class="ch" data-par="" aria-pressed="${!p}">还没定</button>` +
+        outerBoxes().map(o => `<button type="button" class="ch bx" data-par="${esc(o.id)}" style="--bh:${boxHue(o)}" aria-pressed="${!!p && p.id === o.id}">${o.no}号<small>${esc(boxTitle(o))}</small></button>`).join('') +
+        `</div>` + (p ? `<label class="chk"><input type="checkbox" id="bxCpk" ${b.packed ? 'checked' : ''}> 这个盒子已经放进 ${boxLabel(p)} 了</label>` : '')
+      : '';
     $('bxPh').innerHTML = slotHTML(b, 'photo') + slotHTML(b, 'donePhoto');
-    $('bxList').innerHTML = its.length ? `<div class="rows">${its.slice().sort(byCatNo).map(i => {
+    const itemRows = s.its.slice().sort(byCatNo).map(i => {
       const c = catOf(i.cat);
       return `<div class="pr" style="--bh:${boxHue(b)}"><span class="th">${thumb(i)}</span>
         <button type="button" class="pr-m" data-item="${esc(i.id)}"><span class="pr-t"><span class="nn">${pad3(i.no)}</span> ${i.name ? esc(i.name) : '<span class="un">未命名</span>'}${i.qty > 1 ? ` ×${i.qty}` : ''}</span><span class="pr-s">${esc(c.ico + ' ' + c.name + (i.note ? ' · ' + i.note : ''))}</span></button>
         <button type="button" class="tg${i.packed ? ' on' : ''}" data-tg="${esc(i.id)}" aria-pressed="${!!i.packed}">${i.packed ? '✓ 已放入' : '标记已放入'}</button></div>`;
-    }).join('')}</div>` : '<div class="empty">这个箱子还是空的。点「去装这个箱子」开始往里放东西。</div>';
+    }).join('');
+    const kidRows = s.kids.map(c => { const cs = boxStats(c);
+      return `<div class="pr" style="--bh:${boxHue(b)}">${caseThumb(c)}
+        <button type="button" class="pr-m" data-box="${esc(c.id)}"><span class="pr-t">${esc(boxFull(c))}</span><span class="pr-s">${cs.its.length ? `装了 ${cs.its.length} 件，点开看` : '还是空的'}</span></button>
+        <button type="button" class="tg${c.packed ? ' on' : ''}" data-tgb="${esc(c.id)}" aria-pressed="${!!c.packed}">${c.packed ? '✓ 已放入' : '标记已放入'}</button></div>`; }).join('');
+    $('bxList').innerHTML = !s.total ? `<div class="empty">这个${isCase(b) ? '盒子' : '箱子'}还是空的。点「${$('bxPack').textContent}」开始往里放东西。</div>`
+      : s.kids.length ? `<div class="sec-h">盒子 · ${s.kids.length}</div><div class="rows">${kidRows}</div>${s.its.length ? `<div class="sec-h">直接放在 ${boxLabel(b)} 里的 · ${s.its.length}</div><div class="rows">${itemRows}</div>` : ''}`
+      : `<div class="rows">${itemRows}</div>`;
   }
+  $('bxPar').addEventListener('change', e => {
+    if (e.target.id !== 'bxCpk') return;
+    const c = boxById(openBoxId); if (c) safe(() => patch('boxes', c.id, {packed: e.target.checked}));
+  });
   $('bxPack').addEventListener('click', () => { cur = openBoxId; lsSet(LSK.cur, cur); closeSheet('boxOv'); setTab('pack'); window.scrollTo({top:0}); });
-  $('bxCopy').addEventListener('click', () => { const b = boxById(openBoxId); if (b) copyText(boxText(b), `${b.no}号清单`); });
+  $('bxCopy').addEventListener('click', () => { const b = boxById(openBoxId); if (b) copyText(boxText(b), `${boxLabel(b)}清单`); });
   $('bxEdit').addEventListener('click', () => openBoxEdit(openBoxId));
 
-  function openBoxEdit(id){
+  function openBoxEdit(id, kind){
     const b = id ? boxById(id) : null;
-    BE = {id: b ? b.id : null, kind: b ? b.kind || 'suitcase' : 'suitcase'};
-    $('beT').textContent = b ? `编辑 ${b.no}号` : '添加箱子';
-    $('bNo').value = b ? b.no : nextBoxNo();
+    BE = {id: b ? b.id : null, kind: b ? b.kind || 'suitcase' : (kind || 'suitcase'), parent: b ? b.parent || null : null, orig: b};
+    $('beT').textContent = b ? `编辑 ${boxLabel(b)}` : '添加箱子或盒子';
+    $('bNo').value = b ? boxMark(b) : '';
     $('bName').value = b ? b.name || '' : '';
     $('bW').value = b && b.weight != null ? b.weight : '';
     $('bNote').value = b ? b.note || '' : '';
     $('bDel').hidden = !b; $('bMsg').textContent = '';
-    paintKinds(); openSheet('beOv');
+    paintKinds(true); openSheet('beOv');
   }
-  function paintKinds(){
+  function paintKinds(resetNo){
+    const asCase = BE.kind === 'case', o = BE.orig;
     $('bKinds').innerHTML = Object.entries(KINDS).map(([k, v]) => `<button type="button" class="ch" data-kind="${k}" aria-pressed="${BE.kind === k}">${v.ico} ${v.name}</button>`).join('');
+    if (resetNo) $('bNo').value = o && isCase(o) === asCase ? boxMark(o) : asCase ? letter(nextBoxNo(true)) : String(nextBoxNo(false));
+    $('bNo').inputMode = asCase ? 'text' : 'numeric';
+    $('bNo').placeholder = asCase ? '字母' : '数字';
+    $('bParRow').hidden = !asCase;
+    if (asCase) $('bPar').innerHTML = `<button type="button" class="ch" data-bpar="" aria-pressed="${!BE.parent}">还没定</button>` +
+      outerBoxes().filter(x => x.id !== BE.id).map(x => `<button type="button" class="ch bx" data-bpar="${esc(x.id)}" style="--bh:${boxHue(x)}" aria-pressed="${BE.parent === x.id}">${x.no}号<small>${esc(boxTitle(x))}</small></button>`).join('');
   }
-  $('bKinds').addEventListener('click', e => { const c = e.target.closest('[data-kind]'); if (c){ BE.kind = c.dataset.kind; paintKinds(); } });
+  $('bKinds').addEventListener('click', e => { const c = e.target.closest('[data-kind]'); if (c && BE.kind !== c.dataset.kind){ BE.kind = c.dataset.kind; paintKinds(true); } });
+  $('bPar').addEventListener('click', e => { const c = e.target.closest('[data-bpar]'); if (c){ BE.parent = c.dataset.bpar || null; paintKinds(); } });
   $('bSave').addEventListener('click', async () => {
-    const no = parseInt($('bNo').value, 10);
-    if (!no || no < 1 || no > 99){ $('bMsg').textContent = '编号填 1 到 99 之间的数字'; return; }
-    if (boxes.some(b => b.no === no && b.id !== BE.id)){ $('bMsg').textContent = `已经有 ${no}号了，换一个编号`; return; }
-    const w = parseFloat($('bW').value);
-    const data = {no, name: $('bName').value.trim(), kind: BE.kind, weight: isFinite(w) && w > 0 ? Math.round(w * 10) / 10 : null, note: $('bNote').value.trim()};
+    const asCase = BE.kind === 'case', raw = $('bNo').value.trim();
+    const no = asCase ? letterNum(raw) : parseInt(raw, 10);
+    if (asCase && !no){ $('bMsg').textContent = '盒子的编号填一个字母，比如 A'; return; }
+    if (!asCase && (!no || no < 1 || no > 99 || !/^\d+$/.test(raw))){ $('bMsg').textContent = '箱子的编号填 1 到 99 之间的数字'; return; }
+    const clash = boxes.find(b => b.id !== BE.id && isCase(b) === asCase && b.no === no);
+    if (clash){ $('bMsg').textContent = `已经有 ${boxLabel(clash)}了，换一个编号`; return; }
+    const w = parseFloat($('bW').value), o = BE.orig;
+    const data = {no, name: $('bName').value.trim(), kind: BE.kind, weight: isFinite(w) && w > 0 ? Math.round(w * 10) / 10 : null, note: $('bNote').value.trim(),
+      parent: asCase ? BE.parent : null, packed: asCase && o && BE.parent && o.parent === BE.parent ? !!o.packed : false};
     const id = BE.id;
     closeSheet('beOv');
-    if (id) await safe(() => patch('boxes', id, data), '已保存');
-    else { const nid = lid(); await safe(() => put('boxes', nid, {...data, createdAt: Date.now()}), `已添加 ${no}号`); if (!cur){ cur = nid; lsSet(LSK.cur, cur); } }
+    if (id){
+      await safe(async () => {
+        if (asCase && o && !isCase(o)) for (const c of kidsOf(o)) await patch('boxes', c.id, {parent:null, packed:false});
+        await patch('boxes', id, data);
+      }, '已保存');
+    } else {
+      const nid = lid();
+      await safe(() => put('boxes', nid, {...data, photo:null, donePhoto:null, createdAt: Date.now()}), `已添加 ${boxLabel(data)}`);
+      if (!cur){ cur = nid; lsSet(LSK.cur, cur); }
+    }
   });
   $('bDel').addEventListener('click', async () => {
     const b = boxById(BE && BE.id); if (!b) return;
-    const {its} = boxStats(b);
-    if (!await ask(`删除 ${b.no}号？`, its.length ? `里面登记的 ${its.length} 件会变回「未分配」，物品本身不会删掉。` : '这个箱子是空的。', '删除箱子')) return;
+    const s = boxStats(b);
+    const body = [s.its.length ? `里面登记的 ${s.its.length} 件会变回「未分配」` : '', s.kids.length ? `里面的 ${s.kids.length} 个盒子会变成「还没放进箱子」` : ''].filter(Boolean).join('，');
+    if (!await ask(`删除 ${boxLabel(b)}？`, body ? body + '，东西本身不会删掉。' : `这个${isCase(b) ? '盒子' : '箱子'}是空的。`, isCase(b) ? '删除盒子' : '删除箱子')) return;
     closeSheet('beOv'); closeSheet('boxOv');
     await safe(async () => {
       for (const i of items.filter(x => x.box === b.id)) await patch('items', i.id, {box:null, packed:false});
+      for (const c of s.kids) await patch('boxes', c.id, {parent:null, packed:false});
       await drop('boxes', b.id);
       dropPhoto(b.photo); dropPhoto(b.donePhoto);
-    }, `已删除 ${b.no}号`);
+    }, `已删除 ${boxLabel(b)}`);
   });
 
   /* ---------- box photos ---------- */
-  const SLOTS = {photo:'箱子外观', donePhoto:'装完的样子'};
+  const SLOTS = {photo:'外观', donePhoto:'装完的样子'};
   let slotTarget = null;
   function slotHTML(b, slot){
     const u = photoURL(b[slot]), id = esc(b.id);
-    const empty = slot === 'photo' ? '<span><span class="big" aria-hidden="true">🧳</span>拍一下箱子外观<br>到时候好认</span>' : '<span><span class="big" aria-hidden="true">📦</span>装完、合上之前<br>拍一张</span>';
+    const empty = slot === 'photo' ? `<span><span class="big" aria-hidden="true">${isCase(b) ? '🗃️' : '🧳'}</span>拍一下外观<br>到时候好认</span>` : '<span><span class="big" aria-hidden="true">📦</span>装完、合上之前<br>拍一张</span>';
     return `<div class="slot">
-      <button type="button" class="sp${u ? ' has' : ''}" ${u ? `data-view="${slot}"` : `data-snap="${slot}"`} data-sbox="${id}" aria-label="${u ? '查看' : '拍'}${b.no}号${SLOTS[slot]}">${u ? `<img src="${esc(u)}" alt="">` : empty}</button>
+      <button type="button" class="sp${u ? ' has' : ''}" ${u ? `data-view="${slot}"` : `data-snap="${slot}"`} data-sbox="${id}" aria-label="${u ? '查看' : '拍'}${boxLabel(b)}${SLOTS[slot]}">${u ? `<img src="${esc(u)}" alt="">` : empty}</button>
       <span class="sl">${SLOTS[slot]}</span>
       <span class="sb"><label class="btn" for="bxCam" tabindex="0" data-keyclick data-slot="${slot}" data-sbox="${id}">${u ? '重拍' : '拍照'}</label><label class="btn" for="bxLib" tabindex="0" data-keyclick data-slot="${slot}" data-sbox="${id}">相册</label>${u ? `<button type="button" class="ib" data-unslot="${slot}" data-sbox="${id}">去掉</button>` : ''}</span></div>`;
   }
@@ -1203,14 +1313,14 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     const t = slotTarget; slotTarget = null;
     if (!f || !t) return;
     const b = boxById(t.box); if (!b) return;
-    busy(`正在保存 ${b.no}号${SLOTS[t.slot]}…`);
+    busy(`正在保存 ${boxLabel(b)}${SLOTS[t.slot]}…`);
     try{
       const blob = await shrink(f, 1600, .82);
       const ref = await storePhoto(blob);
       const old = b[t.slot];
       await patch('boxes', b.id, {[t.slot]: ref});
       if (old) dropPhoto(old);
-      toast(`${b.no}号${SLOTS[t.slot]}已保存`);
+      toast(`${boxLabel(b)}${SLOTS[t.slot]}已保存`);
     }catch(err){ console.error(err); toast(err && err.message === 'load' ? '这张照片打不开，换一张试试' : errMsg(err)); }
     finally{ busy(null); }
   }
@@ -1218,7 +1328,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
   $('bxLib').addEventListener('change', onSlotPick);
   async function unslot(boxId, slot){
     const b = boxById(boxId); if (!b || !b[slot]) return;
-    if (!await ask(`去掉${SLOTS[slot]}照片？`, `${b.no}号的这张照片会被删除，箱子和里面的物品不受影响。`, '去掉照片')) return;
+    if (!await ask(`去掉${SLOTS[slot]}照片？`, `${boxLabel(b)}的这张照片会被删除，里面的东西不受影响。`, '去掉照片')) return;
     const old = b[slot];
     await safe(() => patch('boxes', b.id, {[slot]: null}), '照片已去掉');
     dropPhoto(old);
@@ -1326,11 +1436,13 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
       const P = r => (r && map.get(r)) || null;
       const boxMap = new Map();
       busy('正在写入箱子…');
-      for (const b of data.boxes){
-        if (!b || typeof b !== 'object') continue;
-        const id = lid(); boxMap.set(b.id, id);
-        await put('boxes', id, {no: clamp(parseInt(b.no, 10) || nextBoxNo(), 1, 99), name: str(b.name, 24), kind: KINDS[b.kind] ? b.kind : 'suitcase',
-          weight: typeof b.weight === 'number' && isFinite(b.weight) ? b.weight : null, note: str(b.note, 60), photo: P(b.photo), donePhoto: P(b.donePhoto), createdAt: +b.createdAt || Date.now()});
+      const srcBoxes = data.boxes.filter(b => b && typeof b === 'object');
+      srcBoxes.forEach(b => boxMap.set(b.id, lid()));
+      for (const b of srcBoxes){
+        const kind = KINDS[b.kind] ? b.kind : 'suitcase', par = kind === 'case' ? boxMap.get(b.parent) || null : null;
+        await put('boxes', boxMap.get(b.id), {no: clamp(parseInt(b.no, 10) || nextBoxNo(kind === 'case'), 1, 999), name: str(b.name, 24), kind,
+          weight: typeof b.weight === 'number' && isFinite(b.weight) ? b.weight : null, note: str(b.note, 60), photo: P(b.photo), donePhoto: P(b.donePhoto),
+          parent: par, packed: !!par && !!b.packed, createdAt: +b.createdAt || Date.now()});
       }
       for (let n = 0; n < data.items.length; n++){
         const i = data.items[n]; if (!i || typeof i !== 'object') continue;
@@ -1344,7 +1456,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
       busy('正在清理旧数据…');
       for (const i of oldItems){ await drop('items', i.id); dropPhoto(i.photo); }
       for (const b of oldBoxes){ await drop('boxes', b.id); dropPhoto(b.photo); dropPhoto(b.donePhoto); }
-      cur = data.boxes[0] ? boxMap.get(data.boxes[0].id) || null : null; lsSet(LSK.cur, cur);
+      cur = outerBoxes()[0] ? outerBoxes()[0].id : null; lsSet(LSK.cur, cur);
       fCat = 'all'; fSt = 'all'; pkCat = 'all';
       toast(`导入完成：${data.items.length} 件物品、${data.boxes.length} 个箱子${pf ? `，有 ${pf} 张照片没导进来` : ''}`);
     }catch(e){ console.error(e); toast('导入中断了，' + errMsg(e)); }
@@ -1422,7 +1534,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
   $('baDest').addEventListener('click', async e => {
     const c = e.target.closest('[data-badest]'); if (!c) return;
     let v = c.dataset.badest;
-    if (v === '+new'){ v = await quickBox('suitcase'); if (!v) return; }
+    if (v === '+new' || v === '+newcase'){ v = await quickBox(v === '+new' ? 'suitcase' : 'case'); if (!v) return; }
     BA.dest = v; paintBatch();
   });
   $('baIn').addEventListener('change', e => {

@@ -40,6 +40,8 @@ img{max-width:100%}
 .scene::after{content:"";position:absolute;inset:0;mix-blend-mode:screen;
   background:radial-gradient(40vmax 18vmax at 18% 12%,rgba(255,255,255,.45),transparent 70%),radial-gradient(30vmax 14vmax at 86% 20%,rgba(255,255,255,.3),transparent 70%),repeating-linear-gradient(180deg,transparent 0 6px,rgba(255,255,255,.035) 6px 7px)}
 
+.scene.has-img{background-size:cover;background-position:center}
+.scene.has-img::before,.scene.has-img::after{display:none}
 .wrap{max-width:920px;margin:0 auto;padding:26px 16px 120px}
 .glass{background:var(--glass);border:1px solid var(--edge-soft);-webkit-backdrop-filter:blur(22px) saturate(140%);backdrop-filter:blur(22px) saturate(140%);
   box-shadow:inset 0 1px 0 var(--edge),inset 0 -1px 0 rgba(255,255,255,.08),0 20px 50px rgba(10,30,55,.18)}
@@ -49,6 +51,14 @@ img{max-width:100%}
 .top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px 16px;flex-wrap:wrap;margin-bottom:18px;text-shadow:0 1px 12px rgba(20,40,70,.32)}
 .ttl{font-family:var(--serif);font-weight:500;font-size:clamp(38px,8vw,56px);line-height:1;margin:0;text-wrap:balance}
 .sub{color:var(--muted);font-size:13.5px;margin-top:8px}
+.top-r{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.bgwrap{position:relative}
+.bgbtn{border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer;min-height:38px;text-shadow:none}
+.bgmenu{position:absolute;right:0;top:calc(100% + 8px);z-index:20;display:flex;flex-direction:column;gap:2px;min-width:190px;padding:8px;border-radius:20px;text-shadow:none;
+  background:var(--sheet);border:1px solid var(--edge-soft);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);box-shadow:0 20px 50px rgba(0,10,25,.35)}
+.bgitem{display:block;width:100%;text-align:left;background:transparent;border:0;padding:10px 12px;border-radius:12px;cursor:pointer;font-size:14px}
+.bgitem:hover{background:rgba(255,255,255,.14)}
+.bghint{font-size:11.5px;color:var(--faint);padding:2px 12px 4px}
 .sync{font-size:12px;color:var(--faint);display:flex;align-items:center;gap:6px}
 .sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(255,255,255,.5))}
 
@@ -273,6 +283,7 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
 .busy[hidden]{display:none}
 @media (max-width:520px){
   .wrap{padding-top:20px}
+  .top-r{flex-direction:row-reverse;align-items:center;justify-content:space-between;width:100%}
   .ph-box{grid-template-columns:104px minmax(0,1fr)}
   .ph-prev{width:104px;height:104px}
   .pr{grid-template-columns:52px minmax(0,1fr);row-gap:6px}
@@ -291,7 +302,18 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
       <h1 class="ttl">搬家装箱</h1>
       <div class="sub" id="sub">拍照登记 · 按类分好 · 编号装箱</div>
     </div>
-    <div class="sync" id="sync">正在加载…</div>
+    <div class="top-r">
+      <div class="bgwrap" id="bgWrap">
+        <button type="button" class="bgbtn glass" id="bgBtn" aria-haspopup="true" aria-expanded="false" aria-controls="bgMenu">🖼️ 换背景</button>
+        <div class="bgmenu" id="bgMenu" hidden>
+          <label class="bgitem" for="bgFile" tabindex="0" data-keyclick>上传图片</label>
+          <button type="button" class="bgitem" id="bgReset">恢复默认海面</button>
+          <div class="bghint">横图竖图都可以，会自动铺满</div>
+        </div>
+        <input type="file" id="bgFile" class="vh" accept="image/*" aria-label="选择背景图片">
+      </div>
+      <div class="sync" id="sync">正在加载…</div>
+    </div>
   </header>
 
   <section class="hero glass" aria-label="装箱进度">
@@ -1329,6 +1351,60 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     finally{ busy(null); bkBusy = false; scheduleRender(); }
   }
 
+  /* ---------- background ---------- */
+  const BG_KEY = '__bg';
+  let bgId = null, bgLocalURL = null;
+  function applyBg(src){
+    const sc = document.querySelector('.scene');
+    if (src){ sc.style.backgroundImage = `linear-gradient(rgba(12,28,48,.2),rgba(12,28,48,.45)),url("${src}")`; sc.classList.add('has-img'); }
+    else { sc.style.backgroundImage = ''; sc.classList.remove('has-img'); }
+  }
+  function bgMenu(open){ $('bgMenu').hidden = !open; $('bgBtn').setAttribute('aria-expanded', String(open)); }
+  $('bgBtn').addEventListener('click', e => { e.stopPropagation(); bgMenu($('bgMenu').hidden); });
+  document.addEventListener('click', e => { if (!$('bgWrap').contains(e.target)) bgMenu(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('bgMenu').hidden){ bgMenu(false); $('bgBtn').focus(); } });
+  function loadLocalBg(){
+    idbGet(BG_KEY).then(b => {
+      if (db) return;
+      if (bgLocalURL){ URL.revokeObjectURL(bgLocalURL); bgLocalURL = null; }
+      if (b){ bgLocalURL = URL.createObjectURL(b); applyBg(bgLocalURL); } else applyBg(null);
+    }).catch(() => {});
+  }
+  $('bgFile').addEventListener('change', async e => {
+    bgMenu(false);
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    busy('正在更换背景…');
+    try{
+      const blob = await shrink(f, 2400, .86);
+      if (db && assets){
+        const r = await assets.upload(blob);
+        const old = bgId; bgId = r.id;
+        applyBg('/_blob/' + r.id);
+        await db.doc('settings/bg').set({assetId: r.id});
+        if (old && old !== r.id) assets.delete(old).catch(() => {});
+      } else {
+        await idbPut(BG_KEY, blob);
+        if (bgLocalURL) URL.revokeObjectURL(bgLocalURL);
+        bgLocalURL = URL.createObjectURL(blob); applyBg(bgLocalURL);
+      }
+      toast('背景已更换');
+    }catch(err){ console.error(err); toast(err && err.message === 'load' ? '这张图片打不开，换一张试试' : '更换失败，换一张图片试试'); }
+    finally{ busy(null); }
+  });
+  $('bgReset').addEventListener('click', async () => {
+    bgMenu(false); applyBg(null);
+    idbDel(BG_KEY).catch(() => {});
+    if (bgLocalURL){ URL.revokeObjectURL(bgLocalURL); bgLocalURL = null; }
+    if (db){
+      const old = bgId; bgId = null;
+      await safe(() => db.doc('settings/bg').set({assetId: null}));
+      if (old && assets) assets.delete(old).catch(() => {});
+    }
+    toast('已恢复默认海面');
+  });
+  loadLocalBg();
+
   /* ---------- batch import ---------- */
   let BA = {cat:'auto', dest:''};
   function openBatch(){
@@ -1430,7 +1506,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     const fail = err => {
       console.error(err); clearTimeout(slow);
       db = null; items = lsGet(LSK.items, []); boxes = lsGet(LSK.boxes, []); customCats = lsGet(LSK.cats, []);
-      setSync('云端同步不可用，暂存在这个浏览器里', 'var(--s-none)'); scheduleRender();
+      setSync('云端同步不可用，暂存在这个浏览器里', 'var(--s-none)'); loadLocalBg(); scheduleRender();
     };
     db.collection('items').onSnapshot(s => {
       clearTimeout(slow);
@@ -1439,6 +1515,11 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
       scheduleRender();
     }, fail);
     db.collection('boxes').onSnapshot(s => { boxes = s.docs.map(x => ({id: x.id, ...x.data()})); scheduleRender(); }, fail);
+    db.doc('settings/bg').onSnapshot(s => {
+      const v = s.exists ? s.data() : null;
+      bgId = (v && v.assetId) || null;
+      applyBg(bgId ? '/_blob/' + bgId : null);
+    }, err => console.error(err));
     db.doc('settings/cats').onSnapshot(s => {
       const v = s.exists ? s.data() : null;
       customCats = v && Array.isArray(v.list) ? v.list : [];

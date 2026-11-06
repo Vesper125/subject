@@ -172,8 +172,20 @@ img{max-width:100%}
 .pk-bx{position:relative;padding-right:46px;width:100%}
 .pk-bx .ck{right:12px;top:50%;bottom:auto;transform:translateY(-50%)}
 .pk-bx[aria-pressed="true"]{background:rgba(255,255,255,.22);border-color:#fff}
+.pk-rows{display:flex;flex-direction:column;gap:8px}
+.pk-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch}
+.pk-exp{display:flex;align-items:center;gap:6px;border-radius:16px;padding:6px 12px;min-height:44px;border:1px solid var(--edge-soft);background:rgba(255,255,255,.1);cursor:pointer;font-size:13px;color:var(--muted);white-space:nowrap}
+.pk-exp:hover{background:rgba(255,255,255,.18);color:#fff}
+.pk-exp[aria-expanded="true"]{color:#fff;border-color:hsl(var(--bh) 80% 80% / .8)}
+.pk-exp .chev{display:inline-block;transition:transform .15s}
+.pk-exp[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.pk-in{display:flex;flex-direction:column;gap:8px;margin:8px 0 4px 18px;padding:4px 0 4px 14px;border-left:2px solid hsl(var(--bh) 80% 80% / .55)}
+.pk-in-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted)}
+.pk-in .pk-l.empty-in{padding:4px 0}
+@media (max-width:520px){ .pk-in{margin-left:8px;padding-left:10px} .pk-exp{flex-direction:column;justify-content:center;gap:0;padding:6px 10px;font-size:12px;line-height:1.35} }
+@media (prefers-reduced-motion:reduce){ .pk-exp .chev{transition:none} }
 .pk-foot{position:sticky;bottom:0;z-index:2;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px -18px 0;padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px));
-  background:var(--sheet);border-top:1px solid var(--edge-soft);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+  background:linear-gradient(var(--sheet),var(--sheet)),var(--sea2);border-top:1px solid var(--edge-soft)}
 .pk-foot .form-msg{margin:0}
 .more{margin:18px 4px 0}
 .more-h{font-size:13px;color:var(--muted);margin:0 2px 8px}
@@ -1111,7 +1123,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
   let PK = null;
   const PK_KINDS = [['items', '物品'], ['cases', '盒子'], ['boxes', '箱子']];
   function openPicker(tag){
-    PK = {tag: tag || '', isNew: !tag, kind: 'items', sel: new Set()};
+    PK = {tag: tag || '', isNew: !tag, kind: 'items', sel: new Set(), open: new Set()};
     if (tag){ items.forEach(i => { if (tagsOf(i).includes(tag)) PK.sel.add('i:' + i.id); }); boxes.forEach(b => { if (tagsOf(b).includes(tag)) PK.sel.add('b:' + b.id); }); }
     $('pkT').textContent = PK.isNew ? '新建标签' : `#${tag} · 选择东西`;
     $('pkNewRow').hidden = !PK.isNew; $('pkName').value = ''; $('pkQ').value = ''; $('pkMsg').textContent = '';
@@ -1119,10 +1131,38 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     paintPicker(); openSheet('pkOv');
   }
   function boxHay(b){ return [boxFull(b), boxTitle(b), (KINDS[b.kind] || KINDS.suitcase).name, isCase(b) ? caseWhere(b) : '', b.note || '', ...tagsOf(b).map(t => t + ' #' + t)].join(' ').toLowerCase(); }
+  const pkQ = () => $('pkQ').value.trim().toLowerCase();
+  const hayHit = (h, qq) => !qq || qq.split(/\s+/).filter(Boolean).every(w => h.includes(w));
+  // everything inside a container: its own items, plus (for a 箱子) the items in the 盒子 sitting in it
+  const pkAllIn = b => items.filter(i => i.box === b.id || (!isCase(b) && kidsOf(b).some(c => c.id === i.box)));
   function pkVisible(){
-    const qq = $('pkQ').value.trim().toLowerCase(), ok = h => !qq || qq.split(/\s+/).every(w => h.includes(w));
+    const qq = pkQ();
     if (PK.kind === 'items') return items.filter(i => !qq || matchQ(i, qq)).sort(byCatNo).map(i => ({key: 'i:' + i.id, o: i}));
-    return (PK.kind === 'cases' ? caseBoxes() : outerBoxes()).filter(b => ok(boxHay(b))).map(b => ({key: 'b:' + b.id, o: b}));
+    return (PK.kind === 'cases' ? caseBoxes() : outerBoxes())
+      .filter(b => hayHit(boxHay(b), qq) || pkAllIn(b).some(i => matchQ(i, qq)) || (!isCase(b) && kidsOf(b).some(c => hayHit(boxHay(c), qq))))
+      .map(b => ({key: 'b:' + b.id, o: b}));
+  }
+  function pkBlock(b, qq, nested){
+    const all = pkAllIn(b), kids = isCase(b) ? [] : kidsOf(b);
+    const selfHit = hayHit(boxHay(b), qq);
+    const hits = selfHit ? all : all.filter(i => matchQ(i, qq));
+    const kidHit = !selfHit && kids.some(c => hayHit(boxHay(c), qq));
+    if (qq && !selfHit && !hits.length && !kidHit) return '';
+    const open = PK.open.has(b.id) || (!!qq && !selfHit);
+    const canOpen = all.length || kids.length;
+    let inner = '';
+    if (open && canOpen){
+      const sub = selfHit ? '' : qq;
+      const direct = items.filter(i => i.box === b.id && (!sub || matchQ(i, sub))).sort(byCatNo);
+      const kidsH = kids.map(c => pkBlock(c, sub, true)).join('');
+      const allOn = hits.length && hits.every(i => PK.sel.has('i:' + i.id));
+      inner = `<div class="pk-in">` +
+        (hits.length ? `<div class="pk-in-h"><span>${kids.length ? '里面的盒子和东西' : '里面的东西'}${sub ? `（找到 ${hits.length} 件）` : ''}</span><button type="button" class="ib" data-pkall="${esc(b.id)}">${allOn ? '取消里面的' : '全选里面的'}</button></div>` : '') +
+        kidsH + (direct.length ? `<div class="grid">${direct.map(pkItem).join('')}</div>` : '') +
+        (!all.length && !kids.length ? '<span class="pk-l empty-in">里面还没有东西</span>' : '') + `</div>`;
+    }
+    const n = all.length;
+    return `<div class="pk-grp" style="--bh:${boxHue(b)}"><div class="pk-row">${pkBox(b)}${canOpen ? `<button type="button" class="pk-exp" data-pkexp="${esc(b.id)}" aria-expanded="${open}" aria-label="${open ? '收起' : '展开'} ${esc(boxLabel(b))}">${open ? '收起' : '展开'}${n ? ` · ${n} 件` : kids.length ? ` · ${kids.length} 盒` : ''}<span class="chev" aria-hidden="true">▾</span></button>` : ''}</div>${inner}</div>`;
   }
   function pkItem(i){
     const c = boxById(i.box);
@@ -1159,14 +1199,25 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
       const flush = () => { if (buf.length){ const c = catOf(curCat); html += `<div class="sub-h"><span class="t">${esc(c.ico)} ${esc(c.name)}</span><span class="n">${buf.length} 件</span></div><div class="grid">${buf.join('')}</div>`; } buf = []; };
       for (const x of vis){ const k = catOf(x.o.cat).key; if (k !== curCat){ flush(); curCat = k; } buf.push(pkItem(x.o)); }
       flush();
-    } else html = `<div class="tbxs">${vis.map(x => pkBox(x.o)).join('')}</div>`;
+    } else html = `<div class="pk-rows">${vis.map(x => pkBlock(x.o, pkQ(), false)).join('')}</div>`;
     $('pkList').innerHTML = html;
     paintPickerBar(vis);
   }
   $('pkTabs').addEventListener('click', e => { const b = e.target.closest('[data-pkk]'); if (b && PK){ PK.kind = b.dataset.pkk; paintPicker(); } });
   $('pkQ').addEventListener('input', () => paintPicker());
   $('pkList').addEventListener('click', e => {
-    const b = e.target.closest('[data-pk]'); if (!b || !PK) return;
+    if (!PK) return;
+    const ex = e.target.closest('[data-pkexp]');
+    if (ex){ const id = ex.dataset.pkexp; if (PK.open.has(id)) PK.open.delete(id); else PK.open.add(id); paintPicker(); return; }
+    const pa = e.target.closest('[data-pkall]');
+    if (pa){
+      const bx = boxById(pa.dataset.pkall); if (!bx) return;
+      const qq = pkQ(), all = pkAllIn(bx), list = hayHit(boxHay(bx), qq) ? all : all.filter(i => matchQ(i, qq));
+      const on = list.every(i => PK.sel.has('i:' + i.id));
+      list.forEach(i => on ? PK.sel.delete('i:' + i.id) : PK.sel.add('i:' + i.id));
+      paintPicker(); return;
+    }
+    const b = e.target.closest('[data-pk]'); if (!b) return;
     const k = b.dataset.pk;
     if (PK.sel.has(k)) PK.sel.delete(k); else PK.sel.add(k);
     b.setAttribute('aria-pressed', String(PK.sel.has(k)));

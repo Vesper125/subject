@@ -131,6 +131,14 @@ img{max-width:100%}
 .loc.planned{border-style:dashed;border-color:hsl(var(--bh) 85% 82% / .85);color:hsl(var(--bh) 90% 88%)}
 .loc.none{border-color:color-mix(in srgb,var(--s-none) 75%,transparent);color:var(--s-none)}
 .loc.skip{border-color:var(--edge-soft);color:var(--faint);text-decoration:line-through}
+.sub-h{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin:16px 2px 9px}
+.sub-h:first-of-type{margin-top:0}
+.sub-h::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--edge-soft),transparent)}
+.sub-h .mk{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:999px;font-family:var(--serif);font-weight:700;font-size:15px;line-height:1;color:#fff;
+  background:hsl(var(--bh) 70% 68% / .3);border:1.5px solid hsl(var(--bh) 85% 82%)}
+.sub-h .mk.sq{border-radius:7px}
+.sub-h .t{color:#fff;font-weight:500}
+.sub-h .n{color:var(--faint);font-variant-numeric:tabular-nums}
 .more{margin:18px 4px 0}
 .more-h{font-size:13px;color:var(--muted);margin:0 2px 8px}
 .empty{color:var(--muted);text-align:center;padding:28px 12px;border:1px dashed var(--edge-soft);border-radius:24px;background:rgba(255,255,255,.07)}
@@ -779,6 +787,35 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
       <span class="ph${b ? ' hb' : ''}">${thumb(it)}<span class="no">${pad3(it.no)}</span>${it.qty > 1 ? `<span class="qy">×${it.qty}</span>` : ''}</span>
       <span class="nm${it.name ? '' : ' un'}">${it.name ? esc(it.name) : '未命名'}</span>${locPill(it)}</button>`;
   }
+  // Within a category, keep things that share a box together: 1号 → 1号里的盒子 → 2号 … → 没放进箱子的盒子 → 还没分配 → 不带走
+  function locKey(it){
+    if (it.skip) return [3, 0, 0, 0];
+    const c = boxById(it.box);
+    if (!c) return [2, 0, 0, 0];
+    if (!isCase(c)) return [0, c.no, 0, 0];
+    const p = parentOf(c);
+    return p ? [0, p.no, 1, c.no] : [1, c.no, 0, 0];
+  }
+  const cmpKey = (a, b) => { for (let k = 0; k < 4; k++) if (a[k] !== b[k]) return a[k] - b[k]; return 0; };
+  function groupHead(it, n){
+    const c = !it.skip && boxById(it.box);
+    if (it.skip) return `<div class="sub-h"><span class="t">不带走</span><span class="n">${n} 件</span></div>`;
+    if (!c) return `<div class="sub-h"><span class="t">还没分配</span><span class="n">${n} 件</span></div>`;
+    const p = parentOf(c);
+    const label = isCase(c) ? (p ? `${boxLabel(p)} › ${boxFull(c)}` : `${boxFull(c)}（还没放进箱子）`) : boxFull(c);
+    return `<div class="sub-h" style="--bh:${boxHue(c)}"><span class="mk${isCase(c) ? ' sq' : ''}">${esc(boxMark(c))}</span><span class="t">${esc(label)}</span><span class="n">${n} 件</span></div>`;
+  }
+  function groupedGrid(its){
+    const sorted = its.slice().sort((a, b) => cmpKey(locKey(a), locKey(b)) || (a.no || 0) - (b.no || 0));
+    const groups = [];
+    for (const it of sorted){
+      const g = it.skip ? 'skip' : boxById(it.box) ? it.box : 'none';
+      if (!groups.length || groups[groups.length - 1].g !== g) groups.push({g, its: []});
+      groups[groups.length - 1].its.push(it);
+    }
+    if (groups.length === 1 && groups[0].g === 'none') return `<div class="grid">${sorted.map(card).join('')}</div>`;
+    return groups.map(x => groupHead(x.its[0], x.its.length) + `<div class="grid">${x.its.map(card).join('')}</div>`).join('');
+  }
   function renderItems(){
     const qq = q.trim().toLowerCase(), cats = allCats(), cnt = {};
     items.forEach(i => { const k = catOf(i.cat).key; cnt[k] = (cnt[k] || 0) + 1; });
@@ -807,7 +844,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
       if (!its.length) continue;
       any = true;
       html += `<section class="cat glass"><div class="cat-h"><span class="ci" aria-hidden="true">${esc(c.ico)}</span><span class="cn">${esc(c.name)}</span><span class="cc">${its.length} 件</span>
-        <button type="button" class="ib" data-addcat="${c.key}">＋ 添加</button></div><div class="grid">${its.map(card).join('')}</div></section>`;
+        <button type="button" class="ib" data-addcat="${c.key}">＋ 添加</button></div>${groupedGrid(its)}</section>`;
     }
     if (!any) html += `<div class="empty">${qq ? `没有找到「${esc(q.trim())}」，换个关键词试试` : '这个筛选下没有物品'}</div>`;
     if (!filtering){

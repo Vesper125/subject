@@ -153,6 +153,28 @@ img{max-width:100%}
 .bn.xs.sq{border-radius:12px}
 .bn.xs.pic{border-radius:12px}
 .bn.xs.pic b{min-width:20px;height:20px;font-size:14px;left:2px;bottom:2px;padding:0 4px}
+.cat-h{flex-wrap:wrap}
+.cat-h .acts{margin-left:auto;display:flex;gap:2px;flex-wrap:wrap}
+.cat-h .acts .ib{margin-left:0}
+.tag-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.pks{max-width:760px;padding-bottom:0}
+.pk-tabs{display:flex;gap:4px;padding:4px;border-radius:999px;background:rgba(255,255,255,.1);margin:14px 0 10px}
+.pk-tabs button{flex:1;border:0;background:transparent;border-radius:999px;padding:8px 10px;min-height:40px;cursor:pointer;color:var(--muted);font-size:14px;white-space:nowrap}
+.pk-tabs button[aria-selected="true"]{background:rgba(255,255,255,.92);color:var(--navy);font-weight:600}
+.pk-tabs small{opacity:.75;margin-left:3px}
+.pks .search{display:block;margin-bottom:8px}
+.pk-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted);margin:4px 2px 8px}
+.pk-it{display:flex;flex-direction:column;gap:4px;background:none;border:0;padding:0;text-align:left;cursor:pointer;min-width:0}
+.pk-it[aria-pressed="true"] .ph{outline:3px solid #fff;outline-offset:-3px}
+.ck{position:absolute;right:6px;bottom:6px;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;font-size:14px;font-weight:700;line-height:1;border:2px solid #fff;background:rgba(18,36,58,.45);color:transparent}
+[aria-pressed="true"]>.ph>.ck,[aria-pressed="true"]>.ck{background:#fff;color:var(--navy)}
+.pk-l{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-bx{position:relative;padding-right:46px;width:100%}
+.pk-bx .ck{right:12px;top:50%;bottom:auto;transform:translateY(-50%)}
+.pk-bx[aria-pressed="true"]{background:rgba(255,255,255,.22);border-color:#fff}
+.pk-foot{position:sticky;bottom:0;z-index:2;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px -18px 0;padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px));
+  background:var(--sheet);border-top:1px solid var(--edge-soft);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.pk-foot .form-msg{margin:0}
 .more{margin:18px 4px 0}
 .more-h{font-size:13px;color:var(--muted);margin:0 2px 8px}
 .empty{color:var(--muted);text-align:center;padding:28px 12px;border:1px dashed var(--edge-soft);border-radius:24px;background:rgba(255,255,255,.07)}
@@ -544,6 +566,22 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
   </div>
 </div>
 
+<!-- tag picker -->
+<div class="ov" id="pkOv" hidden>
+  <div class="sheet pks" role="dialog" aria-modal="true" aria-labelledby="pkT" tabindex="-1">
+    <div class="sh-h"><h2 id="pkT">选择东西</h2><button class="x" type="button" data-close="pkOv" aria-label="关闭">✕</button></div>
+    <div id="pkNewRow" hidden><label class="fl" for="pkName" style="margin-top:0">标签名字</label><input class="inp" id="pkName" maxlength="12" placeholder="比如 夏秋、易碎、先拆" autocomplete="off"></div>
+    <div class="pk-tabs" role="tablist" aria-label="选择类型" id="pkTabs"></div>
+    <label class="search" for="pkQ">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.6-3.6"></path></svg>
+      <input id="pkQ" type="search" placeholder="搜名字、分类、B盒、2号…" autocomplete="off" aria-label="在列表里搜索">
+    </label>
+    <div class="pk-bar"><span id="pkShown"></span><button class="ib" type="button" id="pkAll">全选这些</button></div>
+    <div id="pkList"></div>
+    <div class="pk-foot"><button class="btn btn-primary" type="button" id="pkSave">保存</button><span class="hint" id="pkCount" style="margin:0"></span><span class="form-msg" id="pkMsg" aria-live="polite"></span></div>
+  </div>
+</div>
+
 <!-- export -->
 <div class="ov" id="exOv" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="exT" tabindex="-1" style="max-width:460px">
@@ -721,7 +759,7 @@ textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
       if (urlCache.has(k)) return urlCache.get(k);
       if (!urlPending.has(k)){
         urlPending.add(k);
-        idbGet(k).then(b => { if (b){ urlCache.set(k, URL.createObjectURL(b)); scheduleRender(); if (E) paintPhoto(); } }).catch(() => {});
+        idbGet(k).then(b => { if (b){ urlCache.set(k, URL.createObjectURL(b)); scheduleRender(); if (E) paintPhoto(); if (PK && !$('pkOv').hidden) paintPicker(); } }).catch(() => {});
       }
       return '';
     }
@@ -996,7 +1034,8 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
   function renderTags(){
     const el = $('p-tags'), tags = allTags();
     if (!tags.length){
-      el.innerHTML = `<section class="start glass"><h2>还没有标签</h2><p>点开任意一件物品、一个盒子或箱子，在「标签」那一栏加上标签，比如 易碎、先拆、送人、托运。加了标签的东西会按标签分好显示在这里，没有标签的不会出现。</p></section>`;
+      el.innerHTML = `<section class="start glass"><h2>还没有标签</h2><p>点下面的按钮新建一个标签，然后一次勾选要加上它的物品、盒子或箱子，比如 易碎、先拆、送人、夏秋。也可以点开单件东西，在「标签」那一栏加。加了标签的会按标签分好显示在这里，没有标签的不会出现。</p>
+        <div class="sh-acts"><button type="button" class="btn btn-primary" data-tagpick="">＋ 新建标签</button></div></section>`;
       return;
     }
     if (fTag !== 'all' && !tags.includes(fTag)) fTag = 'all';
@@ -1004,10 +1043,10 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     const data = tags.map(per);
     const chips = `<div class="row-scroll" aria-label="按标签筛选"><button type="button" class="fchip" data-tagf="all" aria-pressed="${fTag === 'all'}">全部标签<span class="n">${tags.length}</span></button>` +
       data.map(x => `<button type="button" class="fchip" data-tagf="${esc(x.t)}" aria-pressed="${fTag === x.t}">#${esc(x.t)}<span class="n">${x.its.length + x.bxs.length}</span></button>`).join('') + '</div>';
-    el.innerHTML = chips + data.filter(x => fTag === 'all' || x.t === fTag).map(x => {
+    el.innerHTML = `<div class="tag-tools"><button type="button" class="btn" data-tagpick="">＋ 新标签</button></div>` + chips + data.filter(x => fTag === 'all' || x.t === fTag).map(x => {
       const counts = [x.its.length ? `${x.its.length} 件东西` : '', x.bxs.filter(b => !isCase(b)).length ? `${x.bxs.filter(b => !isCase(b)).length} 个箱子` : '', x.bxs.filter(isCase).length ? `${x.bxs.filter(isCase).length} 个盒子` : ''].filter(Boolean).join(' · ');
       return `<section class="cat glass"><div class="cat-h"><span class="tagname" style="--th:${tagHue(x.t)}">#${esc(x.t)}</span><span class="cc">${counts}</span>
-        <button type="button" class="ib" data-tagm="${esc(x.t)}">改名 / 删除</button></div>
+        <span class="acts"><button type="button" class="ib" data-tagpick="${esc(x.t)}">＋ 选东西</button><button type="button" class="ib" data-tagm="${esc(x.t)}">改名 / 删除</button></span></div>
         ${x.bxs.length ? `<div class="tbxs">${x.bxs.map(tagBox).join('')}</div>` : ''}${x.its.length ? groupedGrid(x.its) : ''}</section>`;
     }).join('');
   }
@@ -1068,6 +1107,108 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     await safe(() => retag(t, ''), `已删除 #${t}`);
   });
 
+  /* ---------- tag picker: tick many things at once ---------- */
+  let PK = null;
+  const PK_KINDS = [['items', '物品'], ['cases', '盒子'], ['boxes', '箱子']];
+  function openPicker(tag){
+    PK = {tag: tag || '', isNew: !tag, kind: 'items', sel: new Set()};
+    if (tag){ items.forEach(i => { if (tagsOf(i).includes(tag)) PK.sel.add('i:' + i.id); }); boxes.forEach(b => { if (tagsOf(b).includes(tag)) PK.sel.add('b:' + b.id); }); }
+    $('pkT').textContent = PK.isNew ? '新建标签' : `#${tag} · 选择东西`;
+    $('pkNewRow').hidden = !PK.isNew; $('pkName').value = ''; $('pkQ').value = ''; $('pkMsg').textContent = '';
+    $('pkSave').textContent = PK.isNew ? '建好标签' : '保存';
+    paintPicker(); openSheet('pkOv');
+  }
+  function boxHay(b){ return [boxFull(b), boxTitle(b), (KINDS[b.kind] || KINDS.suitcase).name, isCase(b) ? caseWhere(b) : '', b.note || '', ...tagsOf(b).map(t => t + ' #' + t)].join(' ').toLowerCase(); }
+  function pkVisible(){
+    const qq = $('pkQ').value.trim().toLowerCase(), ok = h => !qq || qq.split(/\s+/).every(w => h.includes(w));
+    if (PK.kind === 'items') return items.filter(i => !qq || matchQ(i, qq)).sort(byCatNo).map(i => ({key: 'i:' + i.id, o: i}));
+    return (PK.kind === 'cases' ? caseBoxes() : outerBoxes()).filter(b => ok(boxHay(b))).map(b => ({key: 'b:' + b.id, o: b}));
+  }
+  function pkItem(i){
+    const c = boxById(i.box);
+    return `<button type="button" class="pk-it" data-pk="i:${esc(i.id)}" aria-pressed="${PK.sel.has('i:' + i.id)}">
+      <span class="ph">${thumb(i)}<span class="no">${pad3(i.no)}</span><span class="ck" aria-hidden="true">✓</span></span>
+      <span class="nm${i.name ? '' : ' un'}">${i.name ? esc(i.name) : '未命名'}</span><span class="pk-l">${esc(i.skip ? '不带走' : c ? locShort(c) : '还没分配')}</span></button>`;
+  }
+  function pkBox(b){
+    const meta = [isCase(b) ? caseWhere(b) : (KINDS[b.kind] || KINDS.suitcase).name, countText(boxStats(b))].join(' · ');
+    return `<button type="button" class="tbx pk-bx" data-pk="b:${esc(b.id)}" aria-pressed="${PK.sel.has('b:' + b.id)}" style="--bh:${boxHue(b)}">${markHTML(b, ' xs')}<span><span class="bt">${esc(boxFull(b))}</span><span class="bs">${esc(meta)}</span></span><span class="ck" aria-hidden="true">✓</span></button>`;
+  }
+  function pkCounts(){
+    const n = {items: 0, cases: 0, boxes: 0};
+    PK.sel.forEach(k => { const id = k.slice(2); if (k[0] === 'i'){ if (items.some(i => i.id === id)) n.items++; } else { const b = boxById(id); if (b) n[isCase(b) ? 'cases' : 'boxes']++; } });
+    return n;
+  }
+  function paintPickerBar(vis){
+    const n = pkCounts(), total = n.items + n.cases + n.boxes;
+    $('pkTabs').innerHTML = PK_KINDS.map(([k, name]) => `<button type="button" role="tab" data-pkk="${k}" aria-selected="${PK.kind === k}">${name}${n[k] ? `<small>已选 ${n[k]}</small>` : ''}</button>`).join('');
+    $('pkCount').textContent = total ? `一共选了 ${total} 样` : '还没选';
+    vis = vis || pkVisible();
+    const allOn = vis.length && vis.every(x => PK.sel.has(x.key));
+    $('pkAll').textContent = allOn ? '取消这些' : '全选这些';
+    $('pkAll').hidden = !vis.length;
+    $('pkShown').textContent = $('pkQ').value.trim() ? `找到 ${vis.length} 个` : `共 ${vis.length} 个`;
+  }
+  function paintPicker(){
+    if (!PK) return;
+    const vis = pkVisible();
+    let html = '';
+    if (!vis.length) html = `<div class="empty">${$('pkQ').value.trim() ? '没有找到，换个关键词试试' : PK.kind === 'items' ? '还没有登记物品' : PK.kind === 'cases' ? '还没有盒子' : '还没有箱子'}</div>`;
+    else if (PK.kind === 'items'){
+      let curCat = null, buf = [];
+      const flush = () => { if (buf.length){ const c = catOf(curCat); html += `<div class="sub-h"><span class="t">${esc(c.ico)} ${esc(c.name)}</span><span class="n">${buf.length} 件</span></div><div class="grid">${buf.join('')}</div>`; } buf = []; };
+      for (const x of vis){ const k = catOf(x.o.cat).key; if (k !== curCat){ flush(); curCat = k; } buf.push(pkItem(x.o)); }
+      flush();
+    } else html = `<div class="tbxs">${vis.map(x => pkBox(x.o)).join('')}</div>`;
+    $('pkList').innerHTML = html;
+    paintPickerBar(vis);
+  }
+  $('pkTabs').addEventListener('click', e => { const b = e.target.closest('[data-pkk]'); if (b && PK){ PK.kind = b.dataset.pkk; paintPicker(); } });
+  $('pkQ').addEventListener('input', () => paintPicker());
+  $('pkList').addEventListener('click', e => {
+    const b = e.target.closest('[data-pk]'); if (!b || !PK) return;
+    const k = b.dataset.pk;
+    if (PK.sel.has(k)) PK.sel.delete(k); else PK.sel.add(k);
+    b.setAttribute('aria-pressed', String(PK.sel.has(k)));
+    $('pkMsg').textContent = '';
+    paintPickerBar();
+  });
+  $('pkAll').addEventListener('click', () => {
+    if (!PK) return;
+    const vis = pkVisible(), allOn = vis.every(x => PK.sel.has(x.key));
+    vis.forEach(x => allOn ? PK.sel.delete(x.key) : PK.sel.add(x.key));
+    paintPicker();
+  });
+  $('pkSave').addEventListener('click', async () => {
+    if (!PK) return;
+    let tag = PK.tag;
+    if (PK.isNew){
+      tag = cleanTag($('pkName').value);
+      if (!tag){ $('pkMsg').textContent = '先给标签起个名字'; $('pkName').focus(); return; }
+      if (!PK.sel.size){ $('pkMsg').textContent = '至少选一样，标签才会出现'; return; }
+    }
+    const jobs = []; let full = 0;
+    const plan = (col, o, key) => {
+      const has = tagsOf(o).includes(tag), want = PK.sel.has(key);
+      if (PK.isNew && !want) return;
+      if (has === want) return;
+      if (want && tagsOf(o).length >= 10){ full++; return; }
+      jobs.push([col, o.id, want ? [...tagsOf(o), tag] : tagsOf(o).filter(t => t !== tag)]);
+    };
+    items.forEach(i => plan('items', i, 'i:' + i.id));
+    boxes.forEach(b => plan('boxes', b, 'b:' + b.id));
+    const added = jobs.filter(j => j[2].includes(tag)).length, removed = jobs.length - added;
+    closeSheet('pkOv'); PK = null;
+    if (!jobs.length){ if (full) toast(`有 ${full} 样已经有 10 个标签了，没加上`); return; }
+    await safe(async () => {
+      for (let n = 0; n < jobs.length; n++){
+        if (jobs.length > 8) busy(`正在更新标签 ${n + 1} / ${jobs.length}…`);
+        await patch(jobs[n][0], jobs[n][1], {tags: jobs[n][2]});
+      }
+    }, [added ? `${added} 样加上了 #${tag}` : '', removed ? `${removed} 样去掉了 #${tag}` : '', full ? `${full} 样标签满了没加` : ''].filter(Boolean).join('，'));
+    busy(null);
+  });
+
   /* ---------- tabs & global clicks ---------- */
   function setTab(t){
     tab = t; lsSet(LSK.tab, t);
@@ -1079,7 +1220,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
   $('q').addEventListener('input', e => { q = e.target.value; renderItems(); });
 
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-item],[data-addcat],[data-box],[data-put],[data-out],[data-cur],[data-fcat],[data-fst],[data-pkcat],[data-stat],[data-tabgo],[data-qbox],[data-batch],[data-close],[data-tg],[data-view],[data-unslot],[data-snap],[data-putbox],[data-outbox],[data-tgb],[data-par],[data-tagf],[data-tagm],#aiAll');
+    const t = e.target.closest('[data-item],[data-addcat],[data-box],[data-put],[data-out],[data-cur],[data-fcat],[data-fst],[data-pkcat],[data-stat],[data-tabgo],[data-qbox],[data-batch],[data-close],[data-tg],[data-view],[data-unslot],[data-snap],[data-putbox],[data-outbox],[data-tgb],[data-par],[data-tagf],[data-tagm],[data-tagpick],#aiAll');
     if (!t) return;
     const d = t.dataset;
     if (d.close){ closeSheet(d.close); return; }
@@ -1095,6 +1236,7 @@ ${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
     if (d.putbox){ putBox(d.putbox); return; }
     if (d.tagf != null){ fTag = d.tagf; renderTags(); return; }
     if (d.tagm != null){ openTagManage(d.tagm); return; }
+    if (d.tagpick != null){ openPicker(d.tagpick); return; }
     if (d.outbox){ const c = boxById(d.outbox); if (c) safe(() => patch('boxes', c.id, {packed:false}), `${boxLabel(c)} 拿出来了`); return; }
     if (d.tgb){ const c = boxById(d.tgb); if (c) safe(() => patch('boxes', c.id, {packed: !c.packed})); return; }
     if (d.par != null){ const c = boxById(openBoxId); if (c && isCase(c) && (c.parent || '') !== d.par) safe(() => patch('boxes', c.id, {parent: d.par || null, packed: false})); return; }

@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>搬家装箱清单</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: one column of frosted-glass panels over a sky-and-sea scene (sibling of Due 倒计时). Tabs: 物品 / 箱子 / 装箱. */
+  --sky1:#9cb6d0; --sky2:#7a9bbd; --sea1:#45698c; --sea2:#1f3854; --glare:rgba(255,232,210,.75);
+  --ink:#ffffff; --muted:rgba(255,255,255,.76); --faint:rgba(255,255,255,.54);
+  --glass:rgba(255,255,255,.16); --edge:rgba(255,255,255,.45); --edge-soft:rgba(255,255,255,.25);
+  --sheet:rgba(34,58,86,.84); --navy:#23405e;
+  --s-packed:#a8f0bd; --s-planned:#ffe38f; --s-none:#ffb995; --s-skip:rgba(255,255,255,.42);
+  --serif:"Cormorant Garamond","Songti SC","STSong","Noto Serif SC",Georgia,serif;
+  --body:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Segoe UI",sans-serif;
+  color-scheme:dark;
+  box-sizing:border-box;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --sky1:#3a5572; --sky2:#2a425d; --sea1:#1b3350; --sea2:#0d1c30; --glare:rgba(235,220,255,.3); --glass:rgba(255,255,255,.10); --edge:rgba(255,255,255,.3); --edge-soft:rgba(255,255,255,.16); --sheet:rgba(18,32,52,.9); }
+}
+:root[data-theme="dark"]{ --sky1:#3a5572; --sky2:#2a425d; --sea1:#1b3350; --sea2:#0d1c30; --glare:rgba(235,220,255,.3); --glass:rgba(255,255,255,.10); --edge:rgba(255,255,255,.3); --edge-soft:rgba(255,255,255,.16); --sheet:rgba(18,32,52,.9); }
+*,*::before,*::after{box-sizing:inherit}
+html.locked,html.locked body{overflow:hidden}
+body{margin:0;background:var(--sea2);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+button,input,textarea{font:inherit;color:inherit}
+img{max-width:100%}
+:focus-visible{outline:2px solid #fff;outline-offset:2px}
+[hidden]{display:none!important}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);pointer-events:none}
+
+.scene{position:fixed;inset:0;z-index:-1;overflow:hidden;background:linear-gradient(180deg,var(--sky1) 0%,var(--sky2) 30%,var(--sea1) 37%,var(--sea2) 100%)}
+.scene::before{content:"";position:absolute;left:50%;top:34%;width:130vmax;height:60vmax;transform:translate(-50%,-10%);
+  background:radial-gradient(ellipse at 50% 0%,var(--glare) 0%,rgba(255,255,255,.22) 18%,transparent 55%);filter:blur(8px)}
+.scene::after{content:"";position:absolute;inset:0;mix-blend-mode:screen;
+  background:radial-gradient(40vmax 18vmax at 18% 12%,rgba(255,255,255,.45),transparent 70%),radial-gradient(30vmax 14vmax at 86% 20%,rgba(255,255,255,.3),transparent 70%),repeating-linear-gradient(180deg,transparent 0 6px,rgba(255,255,255,.035) 6px 7px)}
+
+.wrap{max-width:920px;margin:0 auto;padding:26px 16px 120px}
+.glass{background:var(--glass);border:1px solid var(--edge-soft);-webkit-backdrop-filter:blur(22px) saturate(140%);backdrop-filter:blur(22px) saturate(140%);
+  box-shadow:inset 0 1px 0 var(--edge),inset 0 -1px 0 rgba(255,255,255,.08),0 20px 50px rgba(10,30,55,.18)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .glass,.pr{background:rgba(60,95,130,.6)} .sheet{background:#26405c} }
+
+/* header */
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px 16px;flex-wrap:wrap;margin-bottom:18px;text-shadow:0 1px 12px rgba(20,40,70,.32)}
+.ttl{font-family:var(--serif);font-weight:500;font-size:clamp(38px,8vw,56px);line-height:1;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:13.5px;margin-top:8px}
+.sync{font-size:12px;color:var(--faint);display:flex;align-items:center;gap:6px}
+.sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dot,rgba(255,255,255,.5))}
+
+/* hero */
+.hero{background:rgba(35,64,94,.26);border-radius:30px;padding:22px 24px;margin-bottom:16px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 30px;align-items:center}
+.hk{color:var(--muted);font-size:13px}
+.hn{font-family:var(--serif);font-weight:500;font-size:clamp(58px,14vw,92px);line-height:.95;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hn small{font-family:var(--body);font-size:14px;color:var(--muted);margin-left:8px;font-weight:400}
+.seg{display:flex;height:10px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.14);box-shadow:inset 0 1px 2px rgba(0,0,0,.15)}
+.seg i{display:block;height:100%}
+.stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.stat{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 12px;border:1px solid var(--edge-soft);background:rgba(255,255,255,.12);font-size:13px;cursor:pointer;min-height:34px}
+.stat:hover{background:rgba(255,255,255,.2)}
+.stat .d{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+.stat b{font-variant-numeric:tabular-nums;font-weight:600}
+@media (max-width:620px){ .hero{grid-template-columns:1fr;padding:20px} }
+
+/* tabs */
+.tabs{display:flex;gap:4px;padding:5px;border-radius:999px;margin:0 0 16px}
+.tab{flex:1;white-space:nowrap;border:0;background:transparent;color:var(--muted);padding:9px 14px;border-radius:999px;cursor:pointer;font-size:14.5px;min-height:42px}
+.tab[aria-selected="true"]{background:rgba(255,255,255,.9);color:var(--navy);font-weight:600;box-shadow:0 4px 14px rgba(10,30,55,.15)}
+.panel[hidden]{display:none}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:999px;padding:9px 18px;font-weight:500;cursor:pointer;min-height:44px;border:1px solid var(--edge);
+  background:rgba(255,255,255,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.4);white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.28)}
+.btn-primary{background:rgba(255,255,255,.92);color:var(--navy);border-color:#fff}
+.btn-primary:hover{background:#fff}
+.btn:disabled{opacity:.55;cursor:default}
+.btn:active,.put:active,.card:active .ph{transform:translateY(1px)}
+.ib{background:transparent;border:0;cursor:pointer;padding:8px 12px;border-radius:999px;font-size:13.5px;color:var(--muted);min-height:40px}
+.ib:hover{background:rgba(255,255,255,.14);color:#fff}
+.danger{color:#ffb3bd}
+
+/* items toolbar */
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.search{flex:1 1 240px;position:relative}
+.search input{width:100%;min-height:46px;padding:10px 16px 10px 42px;border-radius:999px;border:1px solid var(--edge-soft);background:rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.search input::placeholder{color:var(--faint)}
+.search input:focus{outline:none;border-color:var(--edge);background:rgba(255,255,255,.24)}
+.search svg{position:absolute;left:15px;top:50%;width:17px;height:17px;transform:translateY(-50%);opacity:.8;pointer-events:none}
+.row-scroll{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 4px;margin:0 -2px 6px}
+.row-scroll::-webkit-scrollbar{display:none}
+.fchip{flex:none;border-radius:999px;padding:5px 12px;font-size:13px;border:1px solid var(--edge-soft);background:rgba(255,255,255,.12);cursor:pointer;min-height:36px;white-space:nowrap}
+.fchip[aria-pressed="true"]{background:rgba(255,255,255,.92);color:var(--navy);border-color:#fff;font-weight:600}
+.fchip .n{opacity:.7;margin-left:5px;font-variant-numeric:tabular-nums}
+.found{font-size:13px;color:var(--muted);margin:6px 6px 10px}
+.banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;border-radius:22px;padding:10px 12px 10px 16px;margin:4px 0 12px;font-size:14px}
+
+/* category sections */
+.cat{border-radius:26px;padding:14px 14px 16px;margin-bottom:12px}
+.cat-h{display:flex;align-items:center;gap:8px;margin:0 2px 12px}
+.cat-h .ci{font-size:20px;line-height:1}
+.cat-h .cn{font-weight:600;font-size:16px}
+.cat-h .cc{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.cat-h .ib{margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:12px 10px}
+.card{display:flex;flex-direction:column;gap:6px;text-align:left;background:transparent;border:0;padding:0;cursor:pointer;min-width:0}
+.ph{position:relative;display:grid;place-items:center;aspect-ratio:1;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.14);border:1px solid var(--edge-soft);font-size:34px;line-height:1}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.ph.hb::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:hsl(var(--bh) 85% 78%)}
+.card:hover .ph{border-color:var(--edge)}
+.no,.qy{position:absolute;top:6px;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:rgba(18,36,58,.62);font-variant-numeric:tabular-nums;line-height:1.6;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.no{left:6px}.qy{right:6px}
+.nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;font-weight:500;line-height:1.3;overflow-wrap:anywhere}
+.un{color:var(--faint);font-style:italic;font-weight:400}
+.loc{align-self:flex-start;font-size:11.5px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px solid;white-space:nowrap}
+.loc.packed{background:hsl(var(--bh) 75% 75% / .3);border-color:hsl(var(--bh) 85% 82% / .85)}
+.loc.planned{border-style:dashed;border-color:hsl(var(--bh) 85% 82% / .85);color:hsl(var(--bh) 90% 88%)}
+.loc.none{border-color:color-mix(in srgb,var(--s-none) 75%,transparent);color:var(--s-none)}
+.loc.skip{border-color:var(--edge-soft);color:var(--faint);text-decoration:line-through}
+.more{margin:18px 4px 0}
+.more-h{font-size:13px;color:var(--muted);margin:0 2px 8px}
+.empty{color:var(--muted);text-align:center;padding:28px 12px;border:1px dashed var(--edge-soft);border-radius:24px;background:rgba(255,255,255,.07)}
+
+/* start */
+.start{border-radius:28px;padding:22px 20px}
+.start h2{font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.1;margin:0 0 6px;text-wrap:balance}
+.start p{color:var(--muted);margin:0 0 16px;max-width:60ch;font-size:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px 12px;border-radius:20px;border:1px solid var(--edge-soft);background:rgba(255,255,255,.12);cursor:pointer;font-size:13.5px}
+.tile:hover{background:rgba(255,255,255,.2)}
+.tile .ti{font-size:28px;line-height:1}
+
+/* boxes */
+.box-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.box-tools .ib{margin-left:auto}
+.boxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.boxc{display:grid;grid-template-columns:64px minmax(0,1fr);gap:14px;align-items:start;text-align:left;border-radius:26px;padding:16px;cursor:pointer;width:100%}
+.boxc:hover{background:rgba(255,255,255,.22)}
+.bn{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;font-family:var(--serif);font-size:38px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;
+  background:hsl(var(--bh) 70% 68% / .3);border:2px solid hsl(var(--bh) 85% 82%);box-shadow:0 0 18px hsl(var(--bh) 85% 70% / .45)}
+.bn.sm{width:48px;height:48px;font-size:28px;flex:none}
+.bt{display:block;font-weight:600;font-size:16px;overflow-wrap:anywhere}
+.bs{display:block;font-size:12.5px;color:var(--muted)}
+.pbar{display:block;height:6px;border-radius:999px;background:rgba(255,255,255,.16);overflow:hidden;margin:10px 0 5px}
+.pbar i{display:block;height:100%;background:hsl(var(--bh) 85% 80%);border-radius:inherit}
+.thumbs{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
+.thumbs span{position:relative;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.14);font-size:16px;flex:none}
+.thumbs img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.thumbs .more-n{font-size:12px;color:var(--muted)}
+.unas{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-radius:22px;padding:12px 16px;margin-top:12px;font-size:14px}
+
+/* pack */
+.pk-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px;margin:0 -2px 12px}
+.pk-chips::-webkit-scrollbar{display:none}
+.pk-chip{flex:none;display:flex;align-items:center;gap:8px;padding:5px 14px 5px 5px;border-radius:999px;border:1px solid var(--edge-soft);background:rgba(255,255,255,.12);cursor:pointer;min-height:46px;white-space:nowrap}
+.pk-chip .c{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;font-family:var(--serif);font-weight:600;font-size:21px;background:hsl(var(--bh) 70% 68% / .3);border:1.5px solid hsl(var(--bh) 85% 82%)}
+.pk-chip small{color:var(--muted);font-variant-numeric:tabular-nums}
+.pk-chip[aria-pressed="true"]{background:rgba(255,255,255,.92);color:var(--navy);border-color:#fff;font-weight:600}
+.pk-chip[aria-pressed="true"] .c{background:hsl(var(--bh) 80% 74%)}
+.pk-chip[aria-pressed="true"] small{color:rgba(35,64,94,.7)}
+.pk-head{display:flex;align-items:center;gap:14px;border-radius:26px;padding:16px 18px;margin-bottom:12px}
+.pk-head .m{flex:1;min-width:0}
+.pk-head .k{font-size:12.5px;color:var(--muted)}
+.pk-head .t{font-size:19px;font-weight:600;overflow-wrap:anywhere}
+.grp-h{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:16px 6px 8px}
+.grp-h::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--edge-soft),transparent)}
+.rows{display:flex;flex-direction:column;gap:8px}
+.pr{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 10px 8px 8px;border-radius:20px;background:var(--glass);border:1px solid var(--edge-soft);
+  -webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);box-shadow:inset 0 1px 0 var(--edge),0 8px 24px rgba(10,30,55,.1)}
+.th{position:relative;display:grid;place-items:center;width:56px;height:56px;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.14);font-size:24px;line-height:1}
+.th img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.pr-m{min-width:0;cursor:pointer;background:none;border:0;text-align:left;padding:4px 0}
+.pr-t{display:block;font-weight:500;overflow-wrap:anywhere}
+.pr-t .nn{color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
+.pr-s{display:block;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.put{border-radius:999px;padding:8px 14px;min-height:44px;font-weight:600;border:0;background:hsl(var(--bh) 85% 84%);color:var(--navy);cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px hsl(var(--bh) 80% 60% / .35)}
+.out{border-radius:999px;padding:8px 14px;min-height:44px;border:1px solid var(--edge-soft);background:rgba(255,255,255,.1);cursor:pointer;white-space:nowrap;color:var(--muted)}
+.tg{border-radius:999px;padding:7px 12px;min-height:40px;border:1px dashed hsl(var(--bh) 85% 82% / .9);background:transparent;cursor:pointer;white-space:nowrap;font-size:13px}
+.tg.on{border-style:solid;background:hsl(var(--bh) 75% 75% / .32);font-weight:600}
+.done-sec .pr{opacity:.82}
+
+/* sheets */
+.ov{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,20,36,.5);
+  padding:calc(12px + env(safe-area-inset-top,0px)) 10px calc(10px + env(safe-area-inset-bottom,0px))}
+.ov[hidden]{display:none}
+.sheet{width:100%;max-width:560px;max-height:100%;overflow:auto;overscroll-behavior:contain;border-radius:28px;padding:18px 18px 20px;outline:none;
+  background:var(--sheet);border:1px solid var(--edge-soft);-webkit-backdrop-filter:blur(26px) saturate(150%);backdrop-filter:blur(26px) saturate(150%);box-shadow:inset 0 1px 0 var(--edge),0 30px 80px rgba(0,10,25,.45)}
+@media (min-width:700px){ .ov{align-items:center} }
+.sh-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.sh-h h2{margin:0;font-size:18px;font-weight:600;overflow-wrap:anywhere}
+.bx-hd{display:flex;align-items:center;gap:12px;min-width:0}
+.x{flex:none;width:38px;height:38px;border-radius:50%;border:1px solid var(--edge-soft);background:rgba(255,255,255,.12);cursor:pointer;font-size:15px}
+.fl{display:block;font-size:12.5px;color:var(--faint);margin:16px 4px 6px}
+.inp{width:100%;min-height:46px;padding:10px 16px;border-radius:16px;border:1px solid var(--edge-soft);background:rgba(255,255,255,.12)}
+textarea.inp{resize:vertical;min-height:64px;line-height:1.5}
+.inp::placeholder{color:var(--faint)}
+.inp:focus{outline:none;border-color:var(--edge);background:rgba(255,255,255,.18)}
+.row2{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.row2>div{min-width:0}
+.ph-box{display:grid;grid-template-columns:128px minmax(0,1fr);gap:14px;align-items:center}
+.ph-prev{position:relative;display:grid;place-items:center;text-align:center;width:128px;height:128px;border-radius:22px;overflow:hidden;background:rgba(255,255,255,.12);border:1px dashed var(--edge);font-size:12px;color:var(--faint)}
+.ph-prev .big{display:block;font-size:34px;margin-bottom:4px}
+.ph-prev img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ph-btns{display:flex;flex-wrap:wrap;gap:8px}
+.ph-btns .btn{min-height:42px;padding:8px 14px}
+.chs{display:flex;flex-wrap:wrap;gap:6px}
+.ch{border-radius:999px;padding:6px 13px;font-size:13.5px;border:1px solid var(--edge-soft);background:rgba(255,255,255,.1);cursor:pointer;min-height:38px;white-space:nowrap}
+.ch:hover{background:rgba(255,255,255,.18)}
+.ch[aria-pressed="true"]{background:rgba(255,255,255,.92);color:var(--navy);border-color:#fff;font-weight:600}
+.ch.bx{--bh:210;border-color:hsl(var(--bh) 85% 82% / .7)}
+.ch.bx[aria-pressed="true"]{background:hsl(var(--bh) 85% 84%);border-color:#fff}
+.ch small{opacity:.75;margin-left:4px;font-weight:400}
+.ch.dash{border-style:dashed}
+.newcat{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:8px;margin-top:8px}
+.newcat .inp{text-align:left}
+.qty-w{display:inline-flex;align-items:center;border:1px solid var(--edge-soft);border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}
+.qty-w button{width:46px;height:44px;border:0;background:rgba(255,255,255,.1);font-size:19px;cursor:pointer}
+.qty-w input{width:56px;height:44px;text-align:center;border:0;background:transparent;-moz-appearance:textfield;font-variant-numeric:tabular-nums}
+.qty-w input::-webkit-inner-spin-button,.qty-w input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.chk{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.1);cursor:pointer;font-size:14.5px}
+.chk input{width:20px;height:20px;accent-color:#7fd99a;flex:none}
+.chk[hidden]{display:none}
+.sh-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;align-items:center}
+.sh-acts.top{margin:4px 0 14px}
+.sh-acts .ib.danger{margin-left:auto}
+.form-msg{font-size:13px;color:var(--s-none);margin-top:8px;min-height:1em}
+.hint{color:var(--muted);font-size:13.5px;margin:0 0 4px}
+.bph{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 16px}
+.slot{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sp{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:4/3;padding:8px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.1);border:1px dashed var(--edge);color:var(--faint);font-size:12.5px;line-height:1.35;text-align:center;cursor:pointer}
+.sp:hover{background:rgba(255,255,255,.16)}
+.sp.has{border:1px solid var(--edge-soft);padding:0}
+.sp img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sp .big{display:block;font-size:26px;margin-bottom:4px}
+.sl{font-size:13.5px;font-weight:600;padding-left:2px}
+.sb{display:flex;flex-wrap:wrap;gap:4px}
+.sb .btn{min-height:36px;padding:5px 12px;font-size:13px}
+.sb .ib{min-height:36px;padding:5px 8px;font-size:12.5px}
+.bn.pic{position:relative;overflow:hidden;border-radius:18px;font-size:0}
+.bn.pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.bn.pic b{position:absolute;left:4px;bottom:4px;display:grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border-radius:999px;background:hsl(var(--bh) 85% 84%);color:var(--navy);font-family:var(--serif);font-size:18px;font-weight:700;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.thumbs .dth{box-shadow:0 0 0 2px hsl(var(--bh) 85% 82%)}
+.thumbs .dth::after{content:"✓";position:absolute;right:2px;bottom:0;font-size:12px;font-weight:700;color:#fff;text-shadow:0 0 4px rgba(0,0,0,.8)}
+.pk-done{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-radius:22px;padding:10px 12px 10px 16px;margin:-4px 0 12px;font-size:14px}
+.pk-done .m{flex:1;min-width:160px}
+.pk-done .pv-th{position:relative;width:64px;height:48px;border-radius:12px;overflow:hidden;border:1px solid var(--edge-soft);padding:0;cursor:pointer;background:rgba(255,255,255,.1);flex:none}
+.pk-done .pv-th img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ph-prev.has{cursor:zoom-in}
+.pvs{max-width:760px}
+.pvs img{display:block;width:100%;max-height:74vh;object-fit:contain;border-radius:18px;background:rgba(0,0,0,.25)}
+.bk{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;border-radius:24px;padding:14px 16px;margin-top:22px}
+.bk-m{flex:1 1 240px;min-width:0}
+.bk-t{font-weight:600;font-size:15px}
+.bk-s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.bk-b{display:flex;gap:8px;flex-wrap:wrap}
+.copybox{width:100%;min-height:220px;font-size:13px;font-family:ui-monospace,Menlo,monospace}
+
+.fab{position:fixed;z-index:30;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));height:56px;padding:0 24px;border-radius:999px;border:1px solid #fff;
+  background:rgba(255,255,255,.94);color:var(--navy);font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 12px 32px rgba(10,30,55,.38)}
+.toast{position:fixed;z-index:80;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:12px;max-width:calc(100% - 32px);
+  padding:9px 10px 9px 18px;border-radius:22px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;background:rgba(255,255,255,.94);color:var(--navy);box-shadow:0 10px 30px rgba(10,30,55,.3)}
+.toast span{overflow-wrap:anywhere}
+.toast:not(.act){padding-right:18px}
+.toast.show{opacity:1}
+.toast.act{pointer-events:auto}
+.toast .tb{border:0;border-radius:999px;padding:6px 14px;background:var(--navy);color:#fff;font-weight:600;cursor:pointer;flex:none}
+.busy{position:fixed;z-index:85;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:8px 16px;border-radius:999px;font-size:13.5px;
+  background:rgba(255,255,255,.94);color:var(--navy);box-shadow:0 10px 30px rgba(10,30,55,.3);white-space:nowrap}
+.busy[hidden]{display:none}
+@media (max-width:520px){
+  .wrap{padding-top:20px}
+  .ph-box{grid-template-columns:104px minmax(0,1fr)}
+  .ph-prev{width:104px;height:104px}
+  .pr{grid-template-columns:52px minmax(0,1fr);row-gap:6px}
+  .pr .th{width:52px;height:52px}
+  .pr>.put,.pr>.out,.pr>.tg{grid-column:2;justify-self:start;min-height:40px}
+  .boxes{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){ .toast{transition:none} }
+</style>
+</head>
+<body>
+<div class="scene" aria-hidden="true"></div>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1 class="ttl">搬家装箱</h1>
+      <div class="sub" id="sub">拍照登记 · 按类分好 · 编号装箱</div>
+    </div>
+    <div class="sync" id="sync">正在加载…</div>
+  </header>
+
+  <section class="hero glass" aria-label="装箱进度">
+    <div>
+      <div class="hk" id="hK">装箱进度</div>
+      <div class="hn" id="hNum">0</div>
+    </div>
+    <div>
+      <div class="seg" id="hSeg" aria-hidden="true"></div>
+      <div class="stats" id="hStats"></div>
+    </div>
+  </section>
+
+  <nav class="tabs glass" role="tablist" aria-label="视图">
+    <button class="tab" role="tab" type="button" data-tab="items" aria-selected="true">物品</button>
+    <button class="tab" role="tab" type="button" data-tab="boxes" aria-selected="false">箱子</button>
+    <button class="tab" role="tab" type="button" data-tab="pack" aria-selected="false">装箱</button>
+  </nav>
+
+  <div class="panel" id="p-items">
+    <div class="tools">
+      <label class="search" for="q">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.6-3.6"></path></svg>
+        <input id="q" type="search" placeholder="找东西：充电器、#012、2号…" autocomplete="off" aria-label="搜索物品">
+      </label>
+      <button class="btn" type="button" data-batch>批量导入照片</button>
+    </div>
+    <div class="row-scroll" id="fCats" aria-label="按分类筛选"></div>
+    <div class="row-scroll" id="fSts" aria-label="按状态筛选"></div>
+    <div id="banner"></div>
+    <div id="itemsBody"></div>
+  </div>
+
+  <div class="panel" id="p-boxes" hidden>
+    <div class="box-tools">
+      <button class="btn" type="button" data-qbox="suitcase">＋ 行李箱</button>
+      <button class="btn" type="button" data-qbox="box">＋ 纸箱</button>
+      <button class="btn" type="button" data-qbox="bag">＋ 背包</button>
+      <button class="ib" type="button" id="copyAll">复制全部清单</button>
+    </div>
+    <div id="boxesBody"></div>
+  </div>
+
+  <div class="panel" id="p-pack" hidden></div>
+
+  <section class="bk glass" aria-labelledby="bkT">
+    <div class="bk-m">
+      <div class="bk-t" id="bkT">备份 · 换设备</div>
+      <div class="bk-s">把清单和所有照片打包成一个文件。换手机、换浏览器或者换到另一个版本时，导入这个文件就能接着用。</div>
+    </div>
+    <div class="bk-b">
+      <button class="btn" type="button" id="expBtn">导出备份</button>
+      <label class="btn" for="impIn" tabindex="0" data-keyclick>导入备份</label>
+      <input id="impIn" class="vh" type="file" accept=".json,application/json">
+    </div>
+  </section>
+</div>
+
+<button class="fab" type="button" id="fab">＋ 物品</button>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="busy" id="busy" role="status" hidden></div>
+
+<!-- item sheet -->
+<div class="ov" id="itemOv" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="itemT" tabindex="-1">
+    <div class="sh-h"><h2 id="itemT">添加物品</h2><button class="x" type="button" data-close="itemOv" aria-label="关闭">✕</button></div>
+    <div class="ph-box">
+      <div class="ph-prev" id="phPrev"></div>
+      <div class="ph-btns">
+        <label class="btn btn-primary" for="camIn" tabindex="0" data-keyclick>拍照</label>
+        <input id="camIn" class="vh" type="file" accept="image/*" capture="environment">
+        <label class="btn" for="libIn" tabindex="0" data-keyclick>从相册选</label>
+        <input id="libIn" class="vh" type="file" accept="image/*">
+        <button class="btn" type="button" id="aiBtn" hidden>✨ 自动识别</button>
+        <button class="ib" type="button" id="phDel" hidden>去掉照片</button>
+      </div>
+    </div>
+    <label class="fl" for="iName">名称</label>
+    <input class="inp" id="iName" maxlength="40" placeholder="例如 白色连帽卫衣、Switch 手柄" autocomplete="off">
+    <div class="fl">分类</div>
+    <div class="chs" id="iCats"></div>
+    <div class="newcat" id="newCat" hidden>
+      <input class="inp" id="ncIco" maxlength="4" placeholder="🏷️" aria-label="分类图标（一个表情）">
+      <input class="inp" id="ncName" maxlength="10" placeholder="新分类的名字" aria-label="新分类名称">
+      <button class="btn" type="button" id="ncAdd">添加</button>
+    </div>
+    <div class="fl">数量</div>
+    <div class="qty-w"><button type="button" id="qMinus" aria-label="减少">−</button><input id="iQty" type="number" min="1" max="999" inputmode="numeric" value="1" aria-label="数量"><button type="button" id="qPlus" aria-label="增加">＋</button></div>
+    <div class="fl">放进哪个箱子</div>
+    <div class="chs" id="iDest"></div>
+    <label class="chk" id="packedRow" hidden><input type="checkbox" id="iPacked"> 已经放进箱子里了</label>
+    <label class="fl" for="iNote">备注</label>
+    <textarea class="inp" id="iNote" rows="2" maxlength="200" placeholder="选填，比如：易碎、到了先拿出来"></textarea>
+    <div class="sh-acts">
+      <button class="btn btn-primary" type="button" id="iSave">保存</button>
+      <button class="btn" type="button" id="iSaveMore">保存并继续添加</button>
+      <button class="ib danger" type="button" id="iDel">删除这件</button>
+    </div>
+    <div class="form-msg" id="iMsg" aria-live="polite"></div>
+  </div>
+</div>
+
+<!-- box detail sheet -->
+<div class="ov" id="boxOv" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="bxT" tabindex="-1">
+    <div class="sh-h"><div class="bx-hd"><span class="bn sm" id="bxN"></span><div><h2 id="bxT"></h2><span class="bs" id="bxS"></span></div></div><button class="x" type="button" data-close="boxOv" aria-label="关闭">✕</button></div>
+    <div class="sh-acts top">
+      <button class="btn btn-primary" type="button" id="bxPack">去装这个箱子</button>
+      <button class="btn" type="button" id="bxCopy">复制清单</button>
+      <button class="btn" type="button" id="bxEdit">编辑</button>
+    </div>
+    <div class="bph" id="bxPh"></div>
+    <div id="bxList"></div>
+  </div>
+</div>
+
+<!-- box edit sheet -->
+<div class="ov" id="beOv" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="beT" tabindex="-1">
+    <div class="sh-h"><h2 id="beT">添加箱子</h2><button class="x" type="button" data-close="beOv" aria-label="关闭">✕</button></div>
+    <div class="row2">
+      <div style="width:96px"><label class="fl" for="bNo">编号</label><input class="inp" id="bNo" type="number" min="1" max="99" inputmode="numeric"></div>
+      <div style="flex:1 1 200px"><label class="fl" for="bName">名字</label><input class="inp" id="bName" maxlength="24" placeholder="例如 28 寸灰色行李箱" autocomplete="off"></div>
+    </div>
+    <div class="fl">类型</div>
+    <div class="chs" id="bKinds"></div>
+    <div class="row2">
+      <div style="width:150px"><label class="fl" for="bW">重量 kg（选填）</label><input class="inp" id="bW" type="number" min="0" max="99" step="0.1" inputmode="decimal" placeholder="称完再填"></div>
+      <div style="flex:1 1 200px"><label class="fl" for="bNote">备注</label><input class="inp" id="bNote" maxlength="60" placeholder="选填，比如：托运 / 随身 / 寄存" autocomplete="off"></div>
+    </div>
+    <div class="sh-acts">
+      <button class="btn btn-primary" type="button" id="bSave">保存</button>
+      <button class="ib danger" type="button" id="bDel">删除这个箱子</button>
+    </div>
+    <div class="form-msg" id="bMsg" aria-live="polite"></div>
+  </div>
+</div>
+
+<!-- batch sheet -->
+<div class="ov" id="baOv" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="baT" tabindex="-1">
+    <div class="sh-h"><h2 id="baT">批量导入照片</h2><button class="x" type="button" data-close="baOv" aria-label="关闭">✕</button></div>
+    <p class="hint">从相册一次选多张，每张照片变成一件物品，编号按顺序自动排。</p>
+    <div class="fl">分类</div>
+    <div class="chs" id="baCats"></div>
+    <div class="fl">放进哪个箱子</div>
+    <div class="chs" id="baDest"></div>
+    <label class="chk" id="baAiRow" hidden><input type="checkbox" id="baAi" checked> 用 Claude 自动识别每件的名称</label>
+    <div class="sh-acts">
+      <label class="btn btn-primary" for="baIn" tabindex="0" data-keyclick>选择照片（可多选）</label>
+      <input id="baIn" class="vh" type="file" accept="image/*" multiple>
+    </div>
+  </div>
+</div>
+
+<!-- confirm -->
+<div class="ov" id="cfOv" hidden>
+  <div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="cfT" aria-describedby="cfB" tabindex="-1" style="max-width:420px">
+    <div class="sh-h"><h2 id="cfT"></h2></div>
+    <p class="hint" id="cfB"></p>
+    <div class="sh-acts"><button class="btn btn-primary" type="button" id="cfOk"></button><button class="btn" type="button" data-close="cfOv">取消</button></div>
+  </div>
+</div>
+
+<!-- photo viewer -->
+<div class="ov" id="pvOv" hidden>
+  <div class="sheet pvs" role="dialog" aria-modal="true" aria-labelledby="pvT" tabindex="-1">
+    <div class="sh-h"><h2 id="pvT">照片</h2><button class="x" type="button" data-close="pvOv" aria-label="关闭">✕</button></div>
+    <img id="pvImg" alt="">
+  </div>
+</div>
+<input id="bxCam" class="vh" type="file" accept="image/*" capture="environment" aria-label="拍箱子照片">
+<input id="bxLib" class="vh" type="file" accept="image/*" aria-label="从相册选箱子照片">
+
+<!-- export -->
+<div class="ov" id="exOv" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="exT" tabindex="-1" style="max-width:460px">
+    <div class="sh-h"><h2 id="exT">备份已经打包好</h2><button class="x" type="button" data-close="exOv" aria-label="关闭">✕</button></div>
+    <p class="hint" id="exInfo"></p>
+    <div class="sh-acts">
+      <button class="btn btn-primary" type="button" id="exSave">保存备份文件</button>
+      <button class="btn" type="button" id="exShare" hidden>分享 / 发给自己</button>
+    </div>
+    <p class="hint" id="exTip" style="margin-top:14px"></p>
+  </div>
+</div>
+
+<!-- copy fallback -->
+<div class="ov" id="txOv" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="txT" tabindex="-1">
+    <div class="sh-h"><h2 id="txT">清单</h2><button class="x" type="button" data-close="txOv" aria-label="关闭">✕</button></div>
+    <p class="hint">这里没法自动复制，长按下面的文字全选后复制。</p>
+    <textarea class="inp copybox" id="txBox" readonly aria-label="清单文字"></textarea>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const lid = () => 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const pad3 = n => '#' + String(n || 0).padStart(3, '0');
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  const CATS0 = [
+    {key:'clothes', name:'衣物', ico:'👕'},
+    {key:'bedding', name:'床上用品', ico:'🛏️'},
+    {key:'daily',   name:'日常用品', ico:'🧴'},
+    {key:'merch',   name:'周边', ico:'🧸'},
+    {key:'study',   name:'学习用品', ico:'📚'},
+    {key:'fun',     name:'娱乐用品', ico:'🎮'},
+    {key:'tech',    name:'电子产品', ico:'🔌'},
+    {key:'kitchen', name:'厨房用品', ico:'🍳'},
+    {key:'docs',    name:'证件文件', ico:'📄'},
+    {key:'other',   name:'其他', ico:'📦'}
+  ];
+  const KINDS = { suitcase:{ico:'🧳', name:'行李箱'}, box:{ico:'📦', name:'纸箱'}, bag:{ico:'🎒', name:'背包'} };
+  const BOX_HUES = [205, 24, 145, 275, 48, 335, 178, 98, 232, 8];
+  const ST = {
+    packed: {name:'已装入', c:'var(--s-packed)'},
+    planned:{name:'待放入', c:'var(--s-planned)'},
+    none:   {name:'未分配', c:'var(--s-none)'},
+    skip:   {name:'不带走', c:'var(--s-skip)'}
+  };
+  const LSK = { items:'move-items-v1', boxes:'move-boxes-v1', cats:'move-cats-v1', tab:'move-tab-v1', cur:'move-cur-v1' };
+
+  let items = [], boxes = [], customCats = [];
+  let db = null, assets = null, sampleNS = null, aiOff = false, aiImages;
+  let tab = 'items', fCat = 'all', fSt = 'all', q = '', pkCat = 'all', cur = null;
+
+  /* ---------- helpers ---------- */
+  const allCats = () => [...CATS0.slice(0, -1), ...customCats, CATS0[CATS0.length - 1]];
+  const catOf = k => allCats().find(c => c.key === k) || CATS0[CATS0.length - 1];
+  const catOrder = k => { const i = allCats().findIndex(c => c.key === k); return i < 0 ? 999 : i; };
+  const boxById = id => id ? boxes.find(b => b.id === id) || null : null;
+  const sortedBoxes = () => boxes.slice().sort((a, b) => (a.no || 0) - (b.no || 0));
+  const boxHue = b => BOX_HUES[(((b && b.no) || 1) - 1) % BOX_HUES.length];
+  const boxTitle = b => b.name || (KINDS[b.kind] || KINDS.suitcase).name;
+  const nextNo = () => items.reduce((m, i) => Math.max(m, i.no || 0), 0) + 1;
+  const nextBoxNo = () => { const used = new Set(boxes.map(b => b.no)); let n = 1; while (used.has(n)) n++; return n; };
+  const byCatNo = (a, b) => catOrder(catOf(a.cat).key) - catOrder(catOf(b.cat).key) || (a.no || 0) - (b.no || 0);
+  function st(it){ if (it.skip) return 'skip'; if (!boxById(it.box)) return 'none'; return it.packed ? 'packed' : 'planned'; }
+  const itemLabel = it => `${pad3(it.no)} ${it.name || '未命名'}`;
+  function matchQ(it, qq){
+    const c = catOf(it.cat), b = boxById(it.box);
+    const hay = [it.name, it.note, c.name, pad3(it.no), String(it.no), b ? b.no + '号' : '', b ? boxTitle(b) : '', it.skip ? '不带走' : ''].join(' ').toLowerCase();
+    return qq.split(/\s+/).filter(Boolean).every(w => hay.includes(w));
+  }
+
+  function lsGet(k, d){ try{ const r = localStorage.getItem(k); return r ? JSON.parse(r) : d; }catch(e){ return d; } }
+  function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+  let warnedQuota = false;
+  function persist(){
+    if (db) return;
+    const ok = lsSet(LSK.items, items) & lsSet(LSK.boxes, boxes) & lsSet(LSK.cats, customCats);
+    if (!ok && !warnedQuota){ warnedQuota = true; toast('浏览器存储满了，刷新后可能会丢失最新的修改'); }
+  }
+
+  let toastT = 0, toastAct = null;
+  function toast(msg, act){
+    const t = $('toast');
+    t.innerHTML = `<span>${esc(msg)}</span>${act ? `<button type="button" class="tb">${esc(act.label)}</button>` : ''}`;
+    toastAct = act || null;
+    t.classList.add('show'); t.classList.toggle('act', !!act);
+    clearTimeout(toastT);
+    toastT = setTimeout(() => { t.classList.remove('show', 'act'); toastAct = null; }, act ? 5000 : 2300);
+  }
+  $('toast').addEventListener('click', e => {
+    if (!e.target.closest('.tb') || !toastAct) return;
+    const a = toastAct; toastAct = null; $('toast').classList.remove('show', 'act'); a.fn();
+  });
+  const busy = m => { const el = $('busy'); if (m){ el.textContent = m; el.hidden = false; } else el.hidden = true; };
+  const errMsg = e => e && e.code === 'quota_exceeded' ? '存储空间满了，删掉一些照片再试'
+    : e && (e.code === 'permission_denied' || e.code === 'forbidden') ? '没有保存权限，只有页面主人可以修改'
+    : '保存失败，请检查网络后再试';
+  async function safe(fn, ok){
+    try{ const r = await fn(); if (ok) toast(ok); return r; }
+    catch(e){ console.error(e); toast(errMsg(e)); }
+  }
+
+  /* ---------- data writes (optimistic, then db or localStorage) ---------- */
+  async function put(col, id, data){
+    (col === 'items' ? items : boxes).push({id, ...data});
+    scheduleRender();
+    if (db) await db.doc(`${col}/${id}`).set(data); else persist();
+  }
+  async function patch(col, id, p){
+    const o = (col === 'items' ? items : boxes).find(x => x.id === id);
+    if (o) Object.assign(o, p);
+    scheduleRender();
+    if (db) await db.doc(`${col}/${id}`).update(p); else persist();
+  }
+  async function drop(col, id){
+    if (col === 'items') items = items.filter(x => x.id !== id); else boxes = boxes.filter(x => x.id !== id);
+    scheduleRender();
+    if (db) await db.doc(`${col}/${id}`).delete(); else persist();
+  }
+  async function saveCats(){
+    scheduleRender();
+    if (db) await db.doc('settings/cats').set({list: customCats}); else persist();
+  }
+
+  /* ---------- photos ---------- */
+  let idbP = null;
+  function idb(){
+    if (!idbP) idbP = new Promise((res, rej) => {
+      try{
+        const r = indexedDB.open('move-photos', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('p');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      }catch(e){ rej(e); }
+    });
+    return idbP;
+  }
+  function idbReq(mode, fn){
+    return idb().then(d => new Promise((res, rej) => {
+      const t = d.transaction('p', mode), r = fn(t.objectStore('p'));
+      t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    }));
+  }
+  const idbPut = (k, v) => idbReq('readwrite', s => s.put(v, k));
+  const idbGet = k => idbReq('readonly', s => s.get(k));
+  const idbDel = k => idbReq('readwrite', s => s.delete(k));
+  const urlCache = new Map(), urlPending = new Set();
+  function photoURL(ref){
+    if (!ref) return '';
+    if (ref.startsWith('idb:')){
+      const k = ref.slice(4);
+      if (urlCache.has(k)) return urlCache.get(k);
+      if (!urlPending.has(k)){
+        urlPending.add(k);
+        idbGet(k).then(b => { if (b){ urlCache.set(k, URL.createObjectURL(b)); scheduleRender(); if (E) paintPhoto(); } }).catch(() => {});
+      }
+      return '';
+    }
+    return '/_blob/' + ref;
+  }
+  async function blobOf(ref){
+    if (!ref) return null;
+    if (ref.startsWith('idb:')) return idbGet(ref.slice(4));
+    const r = await fetch('/_blob/' + ref); if (!r.ok) throw new Error('fetch'); return r.blob();
+  }
+  async function storePhoto(blob){
+    if (db && assets){ const r = await assets.upload(blob); return r.id; }
+    const k = lid(); await idbPut(k, blob); return 'idb:' + k;
+  }
+  function dropPhoto(ref){
+    if (!ref) return;
+    if (ref.startsWith('idb:')){ idbDel(ref.slice(4)).catch(() => {}); return; }
+    if (assets) assets.delete(ref).catch(() => {});
+  }
+  function shrink(file, max, qual){
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', qual);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('load')); };
+      img.src = url;
+    });
+  }
+  document.addEventListener('error', e => { const t = e.target; if (t && t.tagName === 'IMG') t.style.display = 'none'; }, true);
+  const thumb = it => { const u = photoURL(it.photo); return u ? `<img src="${esc(u)}" alt="" loading="lazy" decoding="async">` : `<span aria-hidden="true">${esc(catOf(it.cat).ico)}</span>`; };
+
+  /* ---------- Claude recognition ---------- */
+  const aiAvail = () => !!sampleNS && !aiOff;
+  async function identify(blob){
+    if (!aiAvail()) throw {code:'unavailable'};
+    if (aiImages === undefined){
+      try{ const l = await sampleNS.limits(); aiImages = !(l && l.images === false); }catch(e){ aiImages = true; }
+    }
+    if (!aiImages) throw {code:'no_images'};
+    const cats = allCats();
+    const prompt = `这是搬家前给一件物品拍的照片。请识别照片里的主要物品，给出：
+- name：简短的中文名称，2 到 10 个字，带上能区分的特征（颜色、品牌、用途），例如「白色连帽卫衣」「Switch 手柄」「宜家台灯」。看不清品牌就不要写品牌，不要编造。
+- cat：从下面的分类里选一个最合适的 key（"周边"指动漫、游戏、偶像相关的吧唧、立牌、玩偶、海报等）：
+${cats.map(c => `${c.key} = ${c.name}`).join('\n')}
+- qty：照片里同一种东西的件数，看不出来就填 1。
+只回复一个 JSON 对象，例如 {"name":"白色连帽卫衣","cat":"clothes","qty":1}`;
+    const r = await sampleNS.json(prompt, {images:[blob], modelTier:'quick'});
+    if (!r || typeof r !== 'object') return null;
+    const keys = cats.map(c => c.key);
+    return {
+      name: String(r.name || '').trim().slice(0, 24),
+      cat: keys.includes(r.cat) ? r.cat : 'other',
+      qty: clamp(parseInt(r.qty, 10) || 1, 1, 99)
+    };
+  }
+  function aiFail(e){
+    const c = e && e.code;
+    if (c === 'not_granted'){ aiOff = true; scheduleRender(); if (E) paintPhoto(); toast('没有允许使用 Claude，自动识别已关闭'); return true; }
+    if (c === 'no_images' || c === 'unavailable'){ aiOff = true; scheduleRender(); if (E) paintPhoto(); toast('这个打开方式不支持识别照片'); return true; }
+    if (c === 'rate_limited'){ toast('识别得太频繁了，等一会儿再试'); return true; }
+    toast('没认出来，手动填一下吧');
+    return false;
+  }
+
+  /* ---------- rendering ---------- */
+  let rq = 0;
+  function scheduleRender(){ if (rq) return; rq = requestAnimationFrame(() => { rq = 0; render(); }); }
+  function render(){
+    renderHero();
+    if (tab === 'items') renderItems();
+    if (tab === 'boxes') renderBoxes();
+    if (tab === 'pack') renderPack();
+    if (!$('boxOv').hidden) renderBoxSheet();
+    $('fab').textContent = tab === 'boxes' ? '＋ 箱子' : '＋ 物品';
+  }
+
+  function counts(){ const c = {packed:0, planned:0, none:0, skip:0}; items.forEach(i => c[st(i)]++); return c; }
+  function renderHero(){
+    const c = counts(), total = items.length, carry = total - c.skip;
+    $('hNum').innerHTML = total ? `${c.packed}<small>/ ${carry} 件已装入</small>` : `0<small>件物品</small>`;
+    $('hK').textContent = !total ? '还没有登记物品' : carry && c.packed === carry ? '全部装好了 🎉' : '装箱进度';
+    $('hSeg').innerHTML = total ? ['packed', 'planned', 'none', 'skip'].map(k => c[k] ? `<i style="width:${c[k] / total * 100}%;background:${ST[k].c}"></i>` : '').join('') : '';
+    $('hStats').innerHTML = ['packed', 'planned', 'none', 'skip'].map(k =>
+      `<button type="button" class="stat" data-stat="${k}" style="--c:${ST[k].c}"><span class="d"></span>${ST[k].name}<b>${c[k]}</b></button>`).join('') +
+      `<button type="button" class="stat" data-tabgo="boxes" style="--c:#ffffff"><span class="d"></span>箱子<b>${boxes.length}</b></button>`;
+    $('sub').textContent = total ? `共 ${total} 件 · 编号 ${pad3(1)} 到 ${pad3(nextNo() - 1)}` : '拍照登记 · 按类分好 · 编号装箱';
+  }
+
+  function locPill(it){
+    const s = st(it);
+    if (s === 'skip') return '<span class="loc skip">不带走</span>';
+    if (s === 'none') return '<span class="loc none">未分配</span>';
+    const b = boxById(it.box);
+    return `<span class="loc ${s}" style="--bh:${boxHue(b)}">${b.no}号${s === 'packed' ? ' ✓' : ' · 待放'}</span>`;
+  }
+  function card(it){
+    const b = !it.skip && boxById(it.box);
+    return `<button type="button" class="card" data-item="${esc(it.id)}"${b ? ` style="--bh:${boxHue(b)}"` : ''} aria-label="${esc(itemLabel(it))}，${ST[st(it)].name}">
+      <span class="ph${b ? ' hb' : ''}">${thumb(it)}<span class="no">${pad3(it.no)}</span>${it.qty > 1 ? `<span class="qy">×${it.qty}</span>` : ''}</span>
+      <span class="nm${it.name ? '' : ' un'}">${it.name ? esc(it.name) : '未命名'}</span>${locPill(it)}</button>`;
+  }
+  function renderItems(){
+    const qq = q.trim().toLowerCase(), cats = allCats(), cnt = {};
+    items.forEach(i => { const k = catOf(i.cat).key; cnt[k] = (cnt[k] || 0) + 1; });
+    if (fCat !== 'all' && !cats.some(c => c.key === fCat)) fCat = 'all';
+    $('fCats').innerHTML = !items.length ? '' : `<button type="button" class="fchip" data-fcat="all" aria-pressed="${fCat === 'all'}">全部<span class="n">${items.length}</span></button>` +
+      cats.filter(c => cnt[c.key] || fCat === c.key).map(c => `<button type="button" class="fchip" data-fcat="${c.key}" aria-pressed="${fCat === c.key}">${esc(c.ico)} ${esc(c.name)}<span class="n">${cnt[c.key] || 0}</span></button>`).join('');
+    $('fSts').innerHTML = items.length ? [['all', '全部状态'], ['none', '未分配'], ['planned', '待放入'], ['packed', '已装入'], ['skip', '不带走']]
+      .map(([k, n]) => `<button type="button" class="fchip" data-fst="${k}" aria-pressed="${fSt === k}">${n}</button>`).join('') : '';
+    const unnamed = items.filter(i => !i.name && i.photo).length;
+    $('banner').innerHTML = unnamed && aiAvail() && !aiRunning
+      ? `<div class="banner glass"><span>有 ${unnamed} 件还没写名字</span><button type="button" class="btn btn-primary" id="aiAll">✨ 让 Claude 自动识别</button></div>` : '';
+
+    if (!items.length){
+      $('itemsBody').innerHTML = `<section class="start glass"><h2>选个分类，拍第一件</h2>
+        <p>每件东西拍一张照，会自动编号 #001、#002…。装箱的时候把它们分到 1号、2号箱子里，之后搜名字就知道在哪个箱子。</p>
+        <div class="tiles">${cats.map(c => `<button type="button" class="tile" data-addcat="${c.key}"><span class="ti">${esc(c.ico)}</span>${esc(c.name)}</button>`).join('')}</div>
+        <div class="sh-acts"><button type="button" class="btn" data-batch>一次导入很多张照片</button></div></section>`;
+      return;
+    }
+    const filtering = !!qq || fCat !== 'all' || fSt !== 'all';
+    const list = items.filter(i => (fCat === 'all' || catOf(i.cat).key === fCat) && (fSt === 'all' || st(i) === fSt) && (!qq || matchQ(i, qq)));
+    let html = filtering ? `<div class="found">${list.length ? `找到 ${list.length} 件` : ''}</div>` : '';
+    let any = false;
+    for (const c of cats){
+      const its = list.filter(i => catOf(i.cat).key === c.key).sort((a, b) => (a.no || 0) - (b.no || 0));
+      if (!its.length) continue;
+      any = true;
+      html += `<section class="cat glass"><div class="cat-h"><span class="ci" aria-hidden="true">${esc(c.ico)}</span><span class="cn">${esc(c.name)}</span><span class="cc">${its.length} 件</span>
+        <button type="button" class="ib" data-addcat="${c.key}">＋ 添加</button></div><div class="grid">${its.map(card).join('')}</div></section>`;
+    }
+    if (!any) html += `<div class="empty">${qq ? `没有找到「${esc(q.trim())}」，换个关键词试试` : '这个筛选下没有物品'}</div>`;
+    if (!filtering){
+      const rest = cats.filter(c => !cnt[c.key]);
+      if (rest.length) html += `<section class="more"><div class="more-h">其他分类</div><div class="chs">${rest.map(c => `<button type="button" class="ch" data-addcat="${c.key}">＋ ${esc(c.ico)} ${esc(c.name)}</button>`).join('')}</div></section>`;
+    }
+    $('itemsBody').innerHTML = html;
+  }
+
+  function boxStats(b){
+    const its = items.filter(i => i.box === b.id && !i.skip);
+    return {its, packed: its.filter(i => i.packed).length};
+  }
+  function renderBoxes(){
+    const bs = sortedBoxes(), c = counts();
+    if (!bs.length){
+      $('boxesBody').innerHTML = `<section class="start glass"><h2>先给箱子编号</h2>
+        <p>在每个行李箱、纸箱上贴张纸写好 1、2、3，然后用上面的按钮添加，编号会自动对上。名字和重量之后可以再改。</p></section>`;
+      return;
+    }
+    $('boxesBody').innerHTML = `<div class="boxes">${bs.map(b => {
+      const {its, packed} = boxStats(b), k = KINDS[b.kind] || KINDS.suitcase, pct = its.length ? packed / its.length * 100 : 0;
+      const shown = its.slice().sort(byCatNo).slice(0, 7);
+      const meta = [k.ico + ' ' + k.name, b.weight ? b.weight + ' kg' : '', b.note || ''].filter(Boolean).join(' · ');
+      return `<button type="button" class="boxc glass" data-box="${esc(b.id)}" style="--bh:${boxHue(b)}">
+        ${b.photo ? `<span class="bn pic"><img src="${esc(photoURL(b.photo))}" alt="" loading="lazy"><b>${b.no}</b></span>` : `<span class="bn">${b.no}</span>`}
+        <span><span class="bt">${b.no}号 · ${esc(boxTitle(b))}</span><span class="bs">${esc(meta)}</span>
+        <span class="pbar"><i style="width:${pct}%"></i></span>
+        <span class="bs">${its.length ? `已放入 ${packed} / ${its.length} 件` : '还是空的'}</span>
+        ${shown.length || b.donePhoto ? `<span class="thumbs">${b.donePhoto ? `<span class="dth" title="装完的样子"><img src="${esc(photoURL(b.donePhoto))}" alt="装完的样子" loading="lazy"></span>` : ''}${shown.map(i => `<span>${thumb(i)}</span>`).join('')}${its.length > 7 ? `<span class="more-n">+${its.length - 7}</span>` : ''}</span>` : ''}</span></button>`;
+    }).join('')}</div>` +
+    (c.none ? `<div class="unas glass"><span>还有 <b>${c.none}</b> 件没分配箱子</span><button type="button" class="btn" data-tabgo="pack">去装箱</button></div>` : '');
+  }
+
+  function renderPack(){
+    const el = $('p-pack'), bs = sortedBoxes();
+    if (!bs.length){
+      el.innerHTML = `<section class="start glass"><h2>先添加箱子</h2><p>给每个行李箱或纸箱编个号，然后就可以在这里一件件放进去，放一件点一下。</p>
+        <div class="sh-acts"><button class="btn btn-primary" type="button" data-qbox="suitcase">＋ 行李箱</button><button class="btn" type="button" data-qbox="box">＋ 纸箱</button><button class="btn" type="button" data-qbox="bag">＋ 背包</button></div></section>`;
+      return;
+    }
+    if (!boxById(cur)) cur = bs[0].id;
+    const b = boxById(cur), h = boxHue(b), {its, packed} = boxStats(b);
+    let todo = items.filter(i => !i.skip && !(i.packed && boxById(i.box)));
+    const cats = [...new Set(todo.map(i => catOf(i.cat).key))].sort((x, y) => catOrder(x) - catOrder(y));
+    if (pkCat !== 'all' && !cats.includes(pkCat)) pkCat = 'all';
+    if (pkCat !== 'all') todo = todo.filter(i => catOf(i.cat).key === pkCat);
+    const g1 = todo.filter(i => i.box === b.id).sort(byCatNo);
+    const g2 = todo.filter(i => !boxById(i.box)).sort(byCatNo);
+    const g3 = todo.filter(i => boxById(i.box) && i.box !== b.id).sort(byCatNo);
+    const done = its.filter(i => i.packed).sort(byCatNo);
+    const grp = (title, arr) => arr.length ? `<div class="grp-h">${title} · ${arr.length}</div><div class="rows">${arr.map(i => packRow(i, b, 'todo')).join('')}</div>` : '';
+    el.innerHTML = `<div class="pk-chips" role="group" aria-label="选择正在装的箱子">${bs.map(x => { const s = boxStats(x);
+        return `<button type="button" class="pk-chip" data-cur="${esc(x.id)}" aria-pressed="${x.id === b.id}" style="--bh:${boxHue(x)}"><span class="c">${x.no}</span>${esc(boxTitle(x))}<small>${s.packed}/${s.its.length}</small></button>`; }).join('')}</div>
+      <section class="pk-head glass" style="--bh:${h}"><span class="bn sm">${b.no}</span><div class="m"><div class="k">正在装</div><div class="t">${b.no}号 · ${esc(boxTitle(b))}</div><div class="k">已放入 ${packed} 件${its.length - packed ? ` · 还有 ${its.length - packed} 件计划放这里` : ''}</div></div>
+        <button type="button" class="ib" data-box="${esc(b.id)}">看清单</button></section>
+      ${packed && packed === its.length ? `<div class="pk-done glass">${b.donePhoto
+        ? `<button type="button" class="pv-th" data-view="donePhoto" data-sbox="${esc(b.id)}" aria-label="看 ${b.no}号装完的照片"><img src="${esc(photoURL(b.donePhoto))}" alt=""></button><span class="m">${b.no}号装完了，照片已存</span><label class="btn" for="bxCam" tabindex="0" data-keyclick data-slot="donePhoto" data-sbox="${esc(b.id)}">重拍</label>`
+        : `<span class="m">${b.no}号里的东西都放好了，合上之前拍一张？</span><label class="btn btn-primary" for="bxCam" tabindex="0" data-keyclick data-slot="donePhoto" data-sbox="${esc(b.id)}">📷 拍装完的样子</label>`}</div>` : ''}
+      ${cats.length > 1 ? `<div class="row-scroll" aria-label="按分类筛选"><button type="button" class="fchip" data-pkcat="all" aria-pressed="${pkCat === 'all'}">全部</button>${cats.map(k => { const c = catOf(k);
+        return `<button type="button" class="fchip" data-pkcat="${k}" aria-pressed="${pkCat === k}">${esc(c.ico)} ${esc(c.name)}</button>`; }).join('')}</div>` : ''}
+      ${todo.length ? grp(`计划放进 ${b.no}号的`, g1) + grp('还没分配的', g2) + grp('计划放别的箱子', g3)
+        : `<div class="empty">${items.length ? '没有要装的东西了 👏' : '还没有登记物品，先点右下角「＋ 物品」拍一件'}</div>`}
+      ${done.length ? `<div class="done-sec"><div class="grp-h">已经放进 ${b.no}号 · ${done.length}</div><div class="rows">${done.map(i => packRow(i, b, 'done')).join('')}</div></div>` : ''}`;
+  }
+  function packRow(it, b, mode){
+    const c = catOf(it.cat), ob = boxById(it.box);
+    const info = [c.ico + ' ' + c.name, mode === 'todo' && ob && ob.id !== b.id ? `原计划 ${ob.no}号` : '', it.note || ''].filter(Boolean).join(' · ');
+    return `<div class="pr" style="--bh:${boxHue(b)}"><span class="th">${thumb(it)}</span>
+      <button type="button" class="pr-m" data-item="${esc(it.id)}"><span class="pr-t"><span class="nn">${pad3(it.no)}</span> ${it.name ? esc(it.name) : '<span class="un">未命名</span>'}${it.qty > 1 ? ` ×${it.qty}` : ''}</span><span class="pr-s">${esc(info)}</span></button>
+      ${mode === 'todo' ? `<button type="button" class="put" data-put="${esc(it.id)}">放进 ${b.no}号</button>` : `<button type="button" class="out" data-out="${esc(it.id)}">拿出来</button>`}</div>`;
+  }
+
+  /* ---------- tabs & global clicks ---------- */
+  function setTab(t){
+    tab = t; lsSet(LSK.tab, t);
+    document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
+    ['items', 'boxes', 'pack'].forEach(x => $('p-' + x).hidden = x !== t);
+    render();
+  }
+  document.querySelector('.tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) setTab(b.dataset.tab); });
+  $('q').addEventListener('input', e => { q = e.target.value; renderItems(); });
+
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-item],[data-addcat],[data-box],[data-put],[data-out],[data-cur],[data-fcat],[data-fst],[data-pkcat],[data-stat],[data-tabgo],[data-qbox],[data-batch],[data-close],[data-tg],[data-view],[data-unslot],[data-snap],#aiAll');
+    if (!t) return;
+    const d = t.dataset;
+    if (d.close){ closeSheet(d.close); return; }
+    if (d.view){ const b = boxById(d.sbox); if (b && b[d.view]) openViewer(photoURL(b[d.view]), `${b.no}号 · ${SLOTS[d.view]}`); return; }
+    if (d.snap){ slotTarget = {box: d.sbox, slot: d.snap}; $('bxCam').click(); return; }
+    if (d.unslot){ unslot(d.sbox, d.unslot); return; }
+    if (d.item != null){ openItem(d.item); return; }
+    if (d.addcat){ openItem(null, {cat: d.addcat}); return; }
+    if (d.box != null){ openBox(d.box); return; }
+    if (d.put){ putIn(d.put); return; }
+    if (d.out){ const it = items.find(x => x.id === d.out); if (it) safe(() => patch('items', it.id, {packed:false}), `${itemLabel(it)} 拿出来了`); return; }
+    if (d.tg){ const it = items.find(x => x.id === d.tg); if (it) safe(() => patch('items', it.id, {packed: !it.packed})); return; }
+    if (d.cur){ cur = d.cur; lsSet(LSK.cur, cur); renderPack(); return; }
+    if (d.fcat){ fCat = d.fcat; renderItems(); return; }
+    if (d.fst){ fSt = d.fst; renderItems(); return; }
+    if (d.pkcat){ pkCat = d.pkcat; renderPack(); return; }
+    if (d.stat){ fSt = d.stat; fCat = 'all'; setTab('items'); return; }
+    if (d.tabgo){ setTab(d.tabgo); return; }
+    if (d.qbox){ quickBox(d.qbox); return; }
+    if (d.batch != null){ openBatch(); return; }
+    if (t.id === 'aiAll'){ aiAllUnnamed(); return; }
+  });
+  document.addEventListener('keydown', e => {
+    const lab = e.target.closest && e.target.closest('label[data-keyclick]');
+    if (lab && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); lab.click(); return; }
+    if (e.key === 'Escape' && openStack.length) closeSheet(openStack[openStack.length - 1]);
+  });
+  $('fab').addEventListener('click', () => {
+    if (tab === 'boxes') openBoxEdit(null);
+    else if (tab === 'pack' && boxById(cur)) openItem(null, {dest: cur, packed: true});
+    else openItem(null, {cat: fCat !== 'all' ? fCat : undefined});
+  });
+
+  function putIn(id){
+    const it = items.find(x => x.id === id), b = boxById(cur); if (!it || !b) return;
+    const prev = {box: it.box || null, packed: !!it.packed, skip: !!it.skip};
+    safe(() => patch('items', id, {box: b.id, packed: true, skip: false}));
+    toast(`${itemLabel(it)} → ${b.no}号 ✓`, {label:'撤销', fn: () => safe(() => patch('items', id, prev))});
+  }
+
+  /* ---------- sheets ---------- */
+  const openStack = [];
+  let askRes = null;
+  function openSheet(id){
+    const o = $(id);
+    o.hidden = false; o.style.zIndex = 50 + openStack.length;
+    if (!openStack.includes(id)) openStack.push(id);
+    document.documentElement.classList.add('locked');
+    o.querySelector('.sheet').scrollTop = 0;
+    setTimeout(() => o.querySelector('.sheet').focus({preventScroll:true}), 20);
+  }
+  function closeSheet(id){
+    const o = $(id); if (o.hidden) return;
+    o.hidden = true;
+    const i = openStack.indexOf(id); if (i >= 0) openStack.splice(i, 1);
+    if (!openStack.length) document.documentElement.classList.remove('locked');
+    if (id === 'cfOv' && askRes){ const r = askRes; askRes = null; r(false); }
+    if (id === 'itemOv'){ if (E && E.url) URL.revokeObjectURL(E.url); E = null; aiTok++; }
+    if (id === 'boxOv') openBoxId = null;
+  }
+  document.querySelectorAll('.ov').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeSheet(o.id); }));
+  function ask(title, body, ok){
+    return new Promise(res => {
+      $('cfT').textContent = title; $('cfB').textContent = body; $('cfOk').textContent = ok;
+      askRes = res; openSheet('cfOv');
+    });
+  }
+  $('cfOk').addEventListener('click', () => { const r = askRes; askRes = null; closeSheet('cfOv'); if (r) r(true); });
+
+  async function copyText(text, title){
+    try{ await navigator.clipboard.writeText(text); toast('已复制，可以直接粘贴发出去'); }
+    catch(e){ $('txT').textContent = title || '清单'; $('txBox').value = text; openSheet('txOv'); setTimeout(() => { $('txBox').focus(); $('txBox').select(); }, 60); }
+  }
+  function boxText(b){
+    const {its, packed} = boxStats(b), k = KINDS[b.kind] || KINDS.suitcase;
+    const head = `【${b.no}号 · ${boxTitle(b)}】${k.name}${b.weight ? ' · ' + b.weight + 'kg' : ''}${b.note ? ' · ' + b.note : ''}  已放入 ${packed}/${its.length}`;
+    const lines = its.slice().sort(byCatNo).map(i => `${pad3(i.no)} ${i.name || '未命名'}${i.qty > 1 ? ' ×' + i.qty : ''}（${catOf(i.cat).name}）${i.packed ? '' : ' 还没放'}`);
+    return [head, ...(lines.length ? lines : ['（空）'])].join('\n');
+  }
+  $('copyAll').addEventListener('click', () => {
+    const c = counts();
+    const parts = sortedBoxes().map(boxText);
+    const none = items.filter(i => st(i) === 'none').sort(byCatNo);
+    if (none.length) parts.push(['【还没分配】', ...none.map(i => `${pad3(i.no)} ${i.name || '未命名'}${i.qty > 1 ? ' ×' + i.qty : ''}`)].join('\n'));
+    const skip = items.filter(i => i.skip).sort(byCatNo);
+    if (skip.length) parts.push(['【不带走】', ...skip.map(i => `${pad3(i.no)} ${i.name || '未命名'}`)].join('\n'));
+    if (!parts.length){ toast('还没有内容可以复制'); return; }
+    copyText(`搬家清单 · 共 ${items.length} 件，已装入 ${c.packed} 件\n\n` + parts.join('\n\n'), '全部清单');
+  });
+
+  /* ---------- item sheet ---------- */
+  let E = null, aiTok = 0, busyItem = false, aiRunning = false;
+  const NAME_PH = $('iName').placeholder;
+  const iMsg = m => { $('iMsg').textContent = m || ''; };
+  function openItem(id, preset){
+    preset = preset || {};
+    const it = id ? items.find(x => x.id === id) : null;
+    if (id && !it) return;
+    E = {
+      id: it ? it.id : null,
+      cat: it ? catOf(it.cat).key : (preset.cat || 'clothes'),
+      catLocked: !!(it || preset.cat),
+      dest: it ? (it.skip ? 'skip' : (boxById(it.box) ? it.box : '')) : (preset.dest || ''),
+      photo: it ? it.photo || null : null, blob: null, url: null, removed: false, aiName: ''
+    };
+    $('itemT').textContent = it ? `${pad3(it.no)} · 修改` : `添加物品 · 将编号 ${pad3(nextNo())}`;
+    $('iName').value = it ? it.name || '' : '';
+    $('iQty').value = it ? it.qty || 1 : 1;
+    $('iNote').value = it ? it.note || '' : '';
+    $('iPacked').checked = it ? !!it.packed : !!preset.packed;
+    $('iSaveMore').hidden = !!it; $('iDel').hidden = !it; $('newCat').hidden = true;
+    $('aiBtn').disabled = false; $('aiBtn').textContent = '✨ 自动识别'; $('iName').placeholder = NAME_PH;
+    iMsg(''); paintPhoto(); paintCats(); paintDest();
+    openSheet('itemOv');
+  }
+  function paintPhoto(){
+    if (!E) return;
+    const src = E.url || (E.removed ? '' : photoURL(E.photo));
+    $('phPrev').classList.toggle('has', !!src);
+    $('phPrev').innerHTML = src ? `<img src="${esc(src)}" alt="物品照片预览">` : `<span><span class="big" aria-hidden="true">${esc(catOf(E.cat).ico)}</span>还没有照片</span>`;
+    $('phDel').hidden = !src && !(E.photo && !E.removed);
+    $('aiBtn').hidden = !(src || (E.photo && !E.removed)) || !aiAvail();
+  }
+  function paintCats(){
+    $('iCats').innerHTML = allCats().map(c => `<button type="button" class="ch" data-icat="${c.key}" aria-pressed="${E.cat === c.key}">${esc(c.ico)} ${esc(c.name)}</button>`).join('') +
+      `<button type="button" class="ch dash" id="ncToggle" aria-expanded="${!$('newCat').hidden}">＋ 新分类</button>`;
+  }
+  function destChips(sel, attr){
+    return `<button type="button" class="ch" ${attr}="" aria-pressed="${sel === ''}">暂不分配</button>` +
+      sortedBoxes().map(b => `<button type="button" class="ch bx" ${attr}="${esc(b.id)}" style="--bh:${boxHue(b)}" aria-pressed="${sel === b.id}">${b.no}号<small>${esc(boxTitle(b))}</small></button>`).join('') +
+      `<button type="button" class="ch dash" ${attr}="+new">＋ 新箱子</button>` +
+      `<button type="button" class="ch" ${attr}="skip" aria-pressed="${sel === 'skip'}">不带走</button>`;
+  }
+  function paintDest(){
+    $('iDest').innerHTML = destChips(E.dest, 'data-idest');
+    const b = boxById(E.dest);
+    $('packedRow').hidden = !b;
+    if (b) $('packedRow').lastChild.textContent = ` 已经放进 ${b.no}号了`;
+  }
+  $('iCats').addEventListener('click', e => {
+    const c = e.target.closest('[data-icat]');
+    if (c){ E.cat = c.dataset.icat; E.catLocked = true; paintCats(); paintPhoto(); return; }
+    if (e.target.closest('#ncToggle')){ $('newCat').hidden = !$('newCat').hidden; paintCats(); if (!$('newCat').hidden) $('ncName').focus(); }
+  });
+  $('ncAdd').addEventListener('click', () => {
+    const name = $('ncName').value.trim(); if (!name){ $('ncName').focus(); return; }
+    if (allCats().some(c => c.name === name)){ E.cat = allCats().find(c => c.name === name).key; }
+    else {
+      const ico = $('ncIco').value.trim() || '🏷️', key = 'c' + Date.now().toString(36);
+      customCats = [...customCats, {key, name, ico}];
+      safe(saveCats);
+      E.cat = key;
+    }
+    E.catLocked = true; $('ncName').value = ''; $('ncIco').value = ''; $('newCat').hidden = true; paintCats(); paintPhoto();
+  });
+  $('iDest').addEventListener('click', async e => {
+    const c = e.target.closest('[data-idest]'); if (!c) return;
+    let v = c.dataset.idest;
+    if (v === '+new'){ v = await quickBox('suitcase'); if (!v || !E) return; }
+    E.dest = v; paintDest();
+  });
+  $('qMinus').addEventListener('click', () => { $('iQty').value = clamp((parseInt($('iQty').value, 10) || 1) - 1, 1, 999); });
+  $('qPlus').addEventListener('click', () => { $('iQty').value = clamp((parseInt($('iQty').value, 10) || 1) + 1, 1, 999); });
+
+  async function onPick(e){
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f || !E) return;
+    iMsg('正在处理照片…');
+    try{
+      const b = await shrink(f, 1280, .82);
+      if (!E) return;
+      if (E.url) URL.revokeObjectURL(E.url);
+      E.blob = b; E.url = URL.createObjectURL(b); E.removed = false;
+      iMsg(''); paintPhoto();
+      if (aiAvail() && (!$('iName').value.trim() || $('iName').value === E.aiName)) aiFill();
+    }catch(err){ iMsg('这张照片打不开，换一张试试'); }
+  }
+  $('camIn').addEventListener('change', onPick);
+  $('libIn').addEventListener('change', onPick);
+  $('phDel').addEventListener('click', () => {
+    if (E.url) URL.revokeObjectURL(E.url);
+    E.blob = null; E.url = null; E.removed = true; paintPhoto();
+  });
+  $('aiBtn').addEventListener('click', aiFill);
+  async function aiFill(){
+    if (!E) return;
+    const tok = ++aiTok, btn = $('aiBtn');
+    btn.disabled = true; btn.textContent = '✨ 识别中…';
+    $('iName').placeholder = 'Claude 正在看照片…';
+    try{
+      const blob = E.blob || await blobOf(E.photo);
+      if (!blob) throw new Error('noblob');
+      const r = await identify(blob);
+      if (tok !== aiTok || !E || !r) return;
+      const cur = $('iName').value.trim();
+      if (r.name && (!cur || cur === E.aiName)){ $('iName').value = r.name; E.aiName = r.name; }
+      if (!E.catLocked){ E.cat = r.cat; paintCats(); }
+      if (r.qty > 1 && $('iQty').value === '1') $('iQty').value = r.qty;
+    }catch(err){ if (tok === aiTok) aiFail(err); }
+    finally{ if (tok === aiTok){ btn.disabled = false; btn.textContent = '✨ 自动识别'; $('iName').placeholder = NAME_PH; paintPhoto(); } }
+  }
+
+  async function saveItem(more){
+    if (busyItem || !E) return;
+    const name = $('iName').value.trim();
+    const hasPhoto = !!E.blob || (E.photo && !E.removed);
+    if (!name && !hasPhoto){ iMsg('拍张照或者写个名字，至少一样'); $('iName').focus(); return; }
+    const b = boxById(E.dest);
+    const data = {
+      name, cat: E.cat, qty: clamp(parseInt($('iQty').value, 10) || 1, 1, 999),
+      note: $('iNote').value.trim().slice(0, 200),
+      box: b ? b.id : null, packed: b ? $('iPacked').checked : false, skip: E.dest === 'skip'
+    };
+    busyItem = true; $('iSave').disabled = $('iSaveMore').disabled = true;
+    const ed = E;
+    try{
+      let oldPhoto = null;
+      if (ed.blob){ iMsg('正在上传照片…'); data.photo = await storePhoto(ed.blob); oldPhoto = ed.photo; }
+      else if (ed.removed){ data.photo = null; oldPhoto = ed.photo; }
+      else data.photo = ed.photo || null;
+      if (ed.id){
+        await patch('items', ed.id, data);
+        toast('已保存');
+      } else {
+        data.no = nextNo(); data.createdAt = Date.now();
+        await put('items', lid(), data);
+        toast(`已登记 ${pad3(data.no)}${name ? ' ' + name : ''}${b ? ` → ${b.no}号` : ''}`);
+      }
+      if (oldPhoto) dropPhoto(oldPhoto);
+      if (more && E === ed){
+        if (E.url) URL.revokeObjectURL(E.url);
+        Object.assign(E, {blob:null, url:null, photo:null, removed:false, aiName:''});
+        $('iName').value = ''; $('iQty').value = 1; $('iNote').value = '';
+        $('itemT').textContent = `添加物品 · 将编号 ${pad3(nextNo())}`;
+        iMsg(''); paintPhoto();
+        $('itemOv').querySelector('.sheet').scrollTop = 0;
+      } else closeSheet('itemOv');
+    }catch(e){ console.error(e); iMsg(errMsg(e)); }
+    finally{ busyItem = false; $('iSave').disabled = $('iSaveMore').disabled = false; }
+  }
+  $('iSave').addEventListener('click', () => saveItem(false));
+  $('iSaveMore').addEventListener('click', () => saveItem(true));
+  $('iDel').addEventListener('click', async () => {
+    const it = E && items.find(x => x.id === E.id); if (!it) return;
+    if (!await ask('删除这件物品？', `${itemLabel(it)} 和它的照片会一起删掉，编号不会被重复使用。`, '删除')) return;
+    closeSheet('itemOv');
+    await safe(() => drop('items', it.id), '已删除');
+    dropPhoto(it.photo);
+  });
+
+  /* ---------- boxes ---------- */
+  async function quickBox(kind){
+    const no = nextBoxNo(), id = lid();
+    await safe(() => put('boxes', id, {no, name:'', kind, weight:null, note:'', photo:null, donePhoto:null, createdAt: Date.now()}), `已添加 ${no}号${KINDS[kind].name}`);
+    if (!cur){ cur = id; lsSet(LSK.cur, cur); }
+    return boxById(id) ? id : null;
+  }
+  let openBoxId = null, BE = null;
+  function openBox(id){ if (!boxById(id)) return; openBoxId = id; renderBoxSheet(); openSheet('boxOv'); }
+  function renderBoxSheet(){
+    const b = boxById(openBoxId);
+    if (!b){ closeSheet('boxOv'); return; }
+    const {its, packed} = boxStats(b), k = KINDS[b.kind] || KINDS.suitcase;
+    $('boxOv').querySelector('.sheet').style.setProperty('--bh', boxHue(b));
+    $('bxN').textContent = b.no;
+    $('bxT').textContent = `${b.no}号 · ${boxTitle(b)}`;
+    $('bxS').textContent = [k.ico + ' ' + k.name, b.weight ? b.weight + ' kg' : '', b.note || '', `已放入 ${packed} / ${its.length} 件`].filter(Boolean).join(' · ');
+    $('bxPh').innerHTML = slotHTML(b, 'photo') + slotHTML(b, 'donePhoto');
+    $('bxList').innerHTML = its.length ? `<div class="rows">${its.slice().sort(byCatNo).map(i => {
+      const c = catOf(i.cat);
+      return `<div class="pr" style="--bh:${boxHue(b)}"><span class="th">${thumb(i)}</span>
+        <button type="button" class="pr-m" data-item="${esc(i.id)}"><span class="pr-t"><span class="nn">${pad3(i.no)}</span> ${i.name ? esc(i.name) : '<span class="un">未命名</span>'}${i.qty > 1 ? ` ×${i.qty}` : ''}</span><span class="pr-s">${esc(c.ico + ' ' + c.name + (i.note ? ' · ' + i.note : ''))}</span></button>
+        <button type="button" class="tg${i.packed ? ' on' : ''}" data-tg="${esc(i.id)}" aria-pressed="${!!i.packed}">${i.packed ? '✓ 已放入' : '标记已放入'}</button></div>`;
+    }).join('')}</div>` : '<div class="empty">这个箱子还是空的。点「去装这个箱子」开始往里放东西。</div>';
+  }
+  $('bxPack').addEventListener('click', () => { cur = openBoxId; lsSet(LSK.cur, cur); closeSheet('boxOv'); setTab('pack'); window.scrollTo({top:0}); });
+  $('bxCopy').addEventListener('click', () => { const b = boxById(openBoxId); if (b) copyText(boxText(b), `${b.no}号清单`); });
+  $('bxEdit').addEventListener('click', () => openBoxEdit(openBoxId));
+
+  function openBoxEdit(id){
+    const b = id ? boxById(id) : null;
+    BE = {id: b ? b.id : null, kind: b ? b.kind || 'suitcase' : 'suitcase'};
+    $('beT').textContent = b ? `编辑 ${b.no}号` : '添加箱子';
+    $('bNo').value = b ? b.no : nextBoxNo();
+    $('bName').value = b ? b.name || '' : '';
+    $('bW').value = b && b.weight != null ? b.weight : '';
+    $('bNote').value = b ? b.note || '' : '';
+    $('bDel').hidden = !b; $('bMsg').textContent = '';
+    paintKinds(); openSheet('beOv');
+  }
+  function paintKinds(){
+    $('bKinds').innerHTML = Object.entries(KINDS).map(([k, v]) => `<button type="button" class="ch" data-kind="${k}" aria-pressed="${BE.kind === k}">${v.ico} ${v.name}</button>`).join('');
+  }
+  $('bKinds').addEventListener('click', e => { const c = e.target.closest('[data-kind]'); if (c){ BE.kind = c.dataset.kind; paintKinds(); } });
+  $('bSave').addEventListener('click', async () => {
+    const no = parseInt($('bNo').value, 10);
+    if (!no || no < 1 || no > 99){ $('bMsg').textContent = '编号填 1 到 99 之间的数字'; return; }
+    if (boxes.some(b => b.no === no && b.id !== BE.id)){ $('bMsg').textContent = `已经有 ${no}号了，换一个编号`; return; }
+    const w = parseFloat($('bW').value);
+    const data = {no, name: $('bName').value.trim(), kind: BE.kind, weight: isFinite(w) && w > 0 ? Math.round(w * 10) / 10 : null, note: $('bNote').value.trim()};
+    const id = BE.id;
+    closeSheet('beOv');
+    if (id) await safe(() => patch('boxes', id, data), '已保存');
+    else { const nid = lid(); await safe(() => put('boxes', nid, {...data, createdAt: Date.now()}), `已添加 ${no}号`); if (!cur){ cur = nid; lsSet(LSK.cur, cur); } }
+  });
+  $('bDel').addEventListener('click', async () => {
+    const b = boxById(BE && BE.id); if (!b) return;
+    const {its} = boxStats(b);
+    if (!await ask(`删除 ${b.no}号？`, its.length ? `里面登记的 ${its.length} 件会变回「未分配」，物品本身不会删掉。` : '这个箱子是空的。', '删除箱子')) return;
+    closeSheet('beOv'); closeSheet('boxOv');
+    await safe(async () => {
+      for (const i of items.filter(x => x.box === b.id)) await patch('items', i.id, {box:null, packed:false});
+      await drop('boxes', b.id);
+      dropPhoto(b.photo); dropPhoto(b.donePhoto);
+    }, `已删除 ${b.no}号`);
+  });
+
+  /* ---------- box photos ---------- */
+  const SLOTS = {photo:'箱子外观', donePhoto:'装完的样子'};
+  let slotTarget = null;
+  function slotHTML(b, slot){
+    const u = photoURL(b[slot]), id = esc(b.id);
+    const empty = slot === 'photo' ? '<span><span class="big" aria-hidden="true">🧳</span>拍一下箱子外观<br>到时候好认</span>' : '<span><span class="big" aria-hidden="true">📦</span>装完、合上之前<br>拍一张</span>';
+    return `<div class="slot">
+      <button type="button" class="sp${u ? ' has' : ''}" ${u ? `data-view="${slot}"` : `data-snap="${slot}"`} data-sbox="${id}" aria-label="${u ? '查看' : '拍'}${b.no}号${SLOTS[slot]}">${u ? `<img src="${esc(u)}" alt="">` : empty}</button>
+      <span class="sl">${SLOTS[slot]}</span>
+      <span class="sb"><label class="btn" for="bxCam" tabindex="0" data-keyclick data-slot="${slot}" data-sbox="${id}">${u ? '重拍' : '拍照'}</label><label class="btn" for="bxLib" tabindex="0" data-keyclick data-slot="${slot}" data-sbox="${id}">相册</label>${u ? `<button type="button" class="ib" data-unslot="${slot}" data-sbox="${id}">去掉</button>` : ''}</span></div>`;
+  }
+  document.addEventListener('click', e => { const l = e.target.closest('label[data-slot]'); if (l) slotTarget = {box: l.dataset.sbox, slot: l.dataset.slot}; }, true);
+  async function onSlotPick(e){
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    const t = slotTarget; slotTarget = null;
+    if (!f || !t) return;
+    const b = boxById(t.box); if (!b) return;
+    busy(`正在保存 ${b.no}号${SLOTS[t.slot]}…`);
+    try{
+      const blob = await shrink(f, 1600, .82);
+      const ref = await storePhoto(blob);
+      const old = b[t.slot];
+      await patch('boxes', b.id, {[t.slot]: ref});
+      if (old) dropPhoto(old);
+      toast(`${b.no}号${SLOTS[t.slot]}已保存`);
+    }catch(err){ console.error(err); toast(err && err.message === 'load' ? '这张照片打不开，换一张试试' : errMsg(err)); }
+    finally{ busy(null); }
+  }
+  $('bxCam').addEventListener('change', onSlotPick);
+  $('bxLib').addEventListener('change', onSlotPick);
+  async function unslot(boxId, slot){
+    const b = boxById(boxId); if (!b || !b[slot]) return;
+    if (!await ask(`去掉${SLOTS[slot]}照片？`, `${b.no}号的这张照片会被删除，箱子和里面的物品不受影响。`, '去掉照片')) return;
+    const old = b[slot];
+    await safe(() => patch('boxes', b.id, {[slot]: null}), '照片已去掉');
+    dropPhoto(old);
+  }
+  function openViewer(src, title){
+    if (!src) return;
+    $('pvImg').src = src; $('pvImg').alt = title; $('pvT').textContent = title;
+    openSheet('pvOv');
+  }
+  $('phPrev').addEventListener('click', () => {
+    const img = $('phPrev').querySelector('img');
+    if (img) openViewer(img.src, $('iName').value.trim() || '物品照片');
+  });
+
+  /* ---------- backup: export / import ---------- */
+  const BK_APP = 'move-packing';
+  const inClaude = !!(window.claude && typeof window.claude.use === 'function');
+  let downloadsNS = null, bkBusy = false, EX = null;
+  const str = (v, n) => String(v == null ? '' : v).slice(0, n);
+  const two = n => String(n).padStart(2, '0');
+  const fmtSize = b => b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+  function fmtTime(iso){ const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${two(d.getHours())}:${two(d.getMinutes())}`; }
+  function blobToDataURL(b){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); }); }
+  function dataURLToBlob(u){
+    const m = /^data:([^;,]+)?(;base64)?,([\s\S]*)$/.exec(u || ''); if (!m) return null;
+    const type = m[1] || 'image/jpeg';
+    if (!m[2]) return new Blob([decodeURIComponent(m[3])], {type});
+    const bin = atob(m[3]), a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    return new Blob([a], {type});
+  }
+
+  $('expBtn').addEventListener('click', prepareExport);
+  async function prepareExport(){
+    if (!items.length && !boxes.length){ toast('还没有内容可以备份'); return; }
+    if (bkBusy || aiRunning) return;
+    bkBusy = true;
+    try{
+      const refs = [...new Set([...items.map(i => i.photo), ...boxes.flatMap(b => [b.photo, b.donePhoto])].filter(Boolean))];
+      const photos = {}; let miss = 0;
+      for (let n = 0; n < refs.length; n++){
+        busy(`正在打包照片 ${n + 1} / ${refs.length}…`);
+        try{ const b = await blobOf(refs[n]); if (b) photos[refs[n]] = await blobToDataURL(b); else miss++; }catch(e){ miss++; }
+      }
+      busy('正在生成备份文件…');
+      const payload = {app: BK_APP, version: 1, exportedAt: new Date().toISOString(), items, boxes, cats: customCats, photos};
+      const blob = new Blob([JSON.stringify(payload)], {type: 'application/json'});
+      const d = new Date();
+      EX = {blob, filename: `搬家清单备份-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}.json`};
+      $('exInfo').textContent = `里面有 ${items.length} 件物品、${boxes.length} 个箱子、${Object.keys(photos).length} 张照片，文件大约 ${fmtSize(blob.size)}。` + (miss ? `有 ${miss} 张照片没读到，没放进去。` : '');
+      let canShare = false;
+      if (!inClaude && navigator.canShare){ try{ canShare = navigator.canShare({files: [new File([blob], EX.filename, {type: 'application/json'})]}); }catch(e){} }
+      $('exShare').hidden = !canShare;
+      $('exSave').hidden = inClaude && !downloadsNS;
+      $('exTip').textContent = inClaude && !downloadsNS ? '这个打开方式不能保存文件，换到电脑浏览器打开这个页面再导出。'
+        : '在 iPhone 上，文件会存到「文件」App 的「下载」文件夹里。' + (canShare ? '也可以点「分享」，用 AirDrop 或者微信发给自己。' : '') + '到另一个设备打开网页，点「导入备份」选这个文件就行。';
+      openSheet('exOv');
+    } finally { busy(null); bkBusy = false; }
+  }
+  $('exSave').addEventListener('click', async () => {
+    if (!EX) return;
+    if (downloadsNS){
+      try{ await downloadsNS.save({filename: EX.filename, data: EX.blob}); toast('备份已保存'); closeSheet('exOv'); }
+      catch(e){ const c = e && e.code; if (c === 'declined') return; toast(c === 'rate_limited' ? '稍等一下再点' : '这里没法保存文件，换个浏览器试试'); }
+      return;
+    }
+    try{
+      const url = URL.createObjectURL(EX.blob), a = document.createElement('a');
+      a.href = url; a.download = EX.filename; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      toast('备份文件已下载');
+    }catch(e){ toast('下载失败，试试「分享」'); }
+  });
+  $('exShare').addEventListener('click', async () => {
+    if (!EX) return;
+    try{ await navigator.share({files: [new File([EX.blob], EX.filename, {type: 'application/json'})], title: '搬家清单备份'}); }
+    catch(e){ if (e && e.name === 'AbortError') return; toast('分享失败，试试「保存备份文件」'); }
+  });
+
+  $('impIn').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    if (bkBusy || aiRunning){ toast('等手头的处理完再导入'); return; }
+    let data;
+    try{ data = JSON.parse(await f.text()); }catch(err){ toast('这个文件打不开，要选导出的那个 .json 备份'); return; }
+    if (!data || data.app !== BK_APP || !Array.isArray(data.items) || !Array.isArray(data.boxes)){ toast('这不是搬家清单的备份文件'); return; }
+    const when = data.exportedAt ? fmtTime(data.exportedAt) : '';
+    const body = `这个备份${when ? `是 ${when} 导出的，` : ''}里面有 ${data.items.length} 件物品、${data.boxes.length} 个箱子。` +
+      (items.length || boxes.length ? `导入后会替换掉现在这里的 ${items.length} 件物品和 ${boxes.length} 个箱子。` : '');
+    if (!await ask('导入这个备份？', body, '导入')) return;
+    await runImport(data);
+  });
+  async function runImport(data){
+    bkBusy = true;
+    const oldItems = items.slice(), oldBoxes = boxes.slice();
+    const photos = data.photos && typeof data.photos === 'object' ? data.photos : {};
+    const refs = Object.keys(photos), map = new Map();
+    let pf = 0;
+    try{
+      for (let n = 0; n < refs.length; n++){
+        busy(`正在导入照片 ${n + 1} / ${refs.length}…`);
+        try{ const b = dataURLToBlob(photos[refs[n]]); if (b) map.set(refs[n], await storePhoto(b)); else pf++; }catch(e){ console.error(e); pf++; }
+      }
+      const P = r => (r && map.get(r)) || null;
+      const boxMap = new Map();
+      busy('正在写入箱子…');
+      for (const b of data.boxes){
+        if (!b || typeof b !== 'object') continue;
+        const id = lid(); boxMap.set(b.id, id);
+        await put('boxes', id, {no: clamp(parseInt(b.no, 10) || nextBoxNo(), 1, 99), name: str(b.name, 24), kind: KINDS[b.kind] ? b.kind : 'suitcase',
+          weight: typeof b.weight === 'number' && isFinite(b.weight) ? b.weight : null, note: str(b.note, 60), photo: P(b.photo), donePhoto: P(b.donePhoto), createdAt: +b.createdAt || Date.now()});
+      }
+      for (let n = 0; n < data.items.length; n++){
+        const i = data.items[n]; if (!i || typeof i !== 'object') continue;
+        if (n % 5 === 0) busy(`正在写入物品 ${n + 1} / ${data.items.length}…`);
+        const bx = boxMap.get(i.box) || null;
+        await put('items', lid(), {name: str(i.name, 40), cat: str(i.cat || 'other', 40), qty: clamp(parseInt(i.qty, 10) || 1, 1, 999), note: str(i.note, 200),
+          box: bx, packed: !!i.packed && !!bx, skip: !!i.skip, photo: P(i.photo), no: parseInt(i.no, 10) || nextNo(), createdAt: +i.createdAt || Date.now()});
+      }
+      customCats = Array.isArray(data.cats) ? data.cats.filter(c => c && c.key && c.name).map(c => ({key: str(c.key, 40), name: str(c.name, 10), ico: str(c.ico || '🏷️', 4)})) : [];
+      await saveCats();
+      busy('正在清理旧数据…');
+      for (const i of oldItems){ await drop('items', i.id); dropPhoto(i.photo); }
+      for (const b of oldBoxes){ await drop('boxes', b.id); dropPhoto(b.photo); dropPhoto(b.donePhoto); }
+      cur = data.boxes[0] ? boxMap.get(data.boxes[0].id) || null : null; lsSet(LSK.cur, cur);
+      fCat = 'all'; fSt = 'all'; pkCat = 'all';
+      toast(`导入完成：${data.items.length} 件物品、${data.boxes.length} 个箱子${pf ? `，有 ${pf} 张照片没导进来` : ''}`);
+    }catch(e){ console.error(e); toast('导入中断了，' + errMsg(e)); }
+    finally{ busy(null); bkBusy = false; scheduleRender(); }
+  }
+
+  /* ---------- batch import ---------- */
+  let BA = {cat:'auto', dest:''};
+  function openBatch(){
+    if (BA.cat === 'auto' && !aiAvail()) BA.cat = 'other';
+    if (BA.dest && BA.dest !== 'skip' && !boxById(BA.dest)) BA.dest = '';
+    paintBatch(); openSheet('baOv');
+  }
+  function paintBatch(){
+    $('baCats').innerHTML = (aiAvail() ? `<button type="button" class="ch" data-bacat="auto" aria-pressed="${BA.cat === 'auto'}">✨ 让 Claude 分</button>` : '') +
+      allCats().map(c => `<button type="button" class="ch" data-bacat="${c.key}" aria-pressed="${BA.cat === c.key}">${esc(c.ico)} ${esc(c.name)}</button>`).join('');
+    $('baDest').innerHTML = destChips(BA.dest, 'data-badest');
+    $('baAiRow').hidden = !aiAvail() || BA.cat === 'auto';
+  }
+  $('baCats').addEventListener('click', e => { const c = e.target.closest('[data-bacat]'); if (c){ BA.cat = c.dataset.bacat; paintBatch(); } });
+  $('baDest').addEventListener('click', async e => {
+    const c = e.target.closest('[data-badest]'); if (!c) return;
+    let v = c.dataset.badest;
+    if (v === '+new'){ v = await quickBox('suitcase'); if (!v) return; }
+    BA.dest = v; paintBatch();
+  });
+  $('baIn').addEventListener('change', e => {
+    const files = [...(e.target.files || [])]; e.target.value = '';
+    if (!files.length) return;
+    closeSheet('baOv'); runBatch(files);
+  });
+  async function runBatch(files){
+    if (aiRunning){ toast('上一批还在处理，等它完成'); return; }
+    const useAI = aiAvail() && (BA.cat === 'auto' || $('baAi').checked);
+    const dest = BA.dest, b = boxById(dest);
+    aiRunning = true; scheduleRender();
+    let ok = 0, named = 0, failed = 0, stopAI = false;
+    try{
+      for (let n = 0; n < files.length; n++){
+        busy(`正在导入 ${n + 1} / ${files.length}${useAI && !stopAI ? ' · 识别中' : ''}…`);
+        try{
+          const blob = await shrink(files[n], 1280, .82);
+          const photo = await storePhoto(blob);
+          const id = lid(), no = nextNo();
+          await put('items', id, {name:'', cat: BA.cat === 'auto' ? 'other' : BA.cat, qty:1, note:'', box: b ? b.id : null, packed:false, skip: dest === 'skip', photo, no, createdAt: Date.now()});
+          ok++;
+          if (useAI && !stopAI){
+            try{
+              const r = await identify(blob);
+              if (r){ const p = {name: r.name}; if (BA.cat === 'auto') p.cat = r.cat; if (r.qty > 1) p.qty = r.qty; await patch('items', id, p); named++; }
+            }catch(err){ if (err && ['rate_limited', 'not_granted', 'no_images', 'unavailable'].includes(err.code)){ stopAI = true; aiFail(err); } }
+          }
+        }catch(err){ console.error(err); failed++; }
+      }
+    } finally {
+      aiRunning = false; busy(null); scheduleRender();
+    }
+    toast(`导入了 ${ok} 件${named ? `，识别出 ${named} 件的名字` : ''}${failed ? `，${failed} 张没成功` : ''}`);
+  }
+  async function aiAllUnnamed(){
+    if (aiRunning) return;
+    const list = items.filter(i => !i.name && i.photo).sort((a, b) => a.no - b.no);
+    if (!list.length) return;
+    aiRunning = true; scheduleRender();
+    let named = 0;
+    try{
+      for (let n = 0; n < list.length; n++){
+        busy(`Claude 正在识别 ${n + 1} / ${list.length}…`);
+        try{
+          const blob = await blobOf(list[n].photo); if (!blob) continue;
+          const r = await identify(blob);
+          if (r && r.name){
+            const p = {name: r.name}; if (catOf(list[n].cat).key === 'other') p.cat = r.cat; if (r.qty > 1 && (list[n].qty || 1) === 1) p.qty = r.qty;
+            await patch('items', list[n].id, p); named++;
+          }
+        }catch(err){ if (err && ['rate_limited', 'not_granted', 'no_images', 'unavailable'].includes(err.code)){ aiFail(err); break; } console.error(err); }
+      }
+    } finally { aiRunning = false; busy(null); scheduleRender(); }
+    if (named) toast(`识别出 ${named} 件的名字`);
+  }
+
+  /* ---------- boot ---------- */
+  const setSync = (txt, dot) => { $('sync').textContent = txt; $('sync').style.setProperty('--dot', dot || 'rgba(255,255,255,.5)'); };
+  items = lsGet(LSK.items, []); boxes = lsGet(LSK.boxes, []); customCats = lsGet(LSK.cats, []);
+  cur = lsGet(LSK.cur, null);
+  const t0 = lsGet(LSK.tab, 'items'); if (['items', 'boxes', 'pack'].includes(t0)) tab = t0;
+  setTab(tab);
+  setSync('数据保存在这个浏览器里');
+
+  (async () => {
+    try{ downloadsNS = inClaude ? await window.claude.use('downloads') : null; }catch(e){ downloadsNS = null; }
+  })();
+  (async () => {
+    try{ sampleNS = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('sample') : null; }catch(e){ sampleNS = null; }
+    scheduleRender();
+  })();
+  (async () => {
+    let d = null;
+    try{ d = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('db') : null; }catch(e){ d = null; }
+    if (!d) return;
+    db = d;
+    try{ assets = await window.claude.use('assets'); }catch(e){ assets = null; }
+    setSync('正在同步…');
+    const slow = setTimeout(() => setSync('同步有点慢，稍等一下…', 'var(--s-planned)'), 10000);
+    const fail = err => {
+      console.error(err); clearTimeout(slow);
+      db = null; items = lsGet(LSK.items, []); boxes = lsGet(LSK.boxes, []); customCats = lsGet(LSK.cats, []);
+      setSync('云端同步不可用，暂存在这个浏览器里', 'var(--s-none)'); scheduleRender();
+    };
+    db.collection('items').onSnapshot(s => {
+      clearTimeout(slow);
+      items = s.docs.map(x => ({id: x.id, ...x.data()}));
+      setSync('已同步 · 换手机或电脑打开也能看到', 'var(--s-packed)');
+      scheduleRender();
+    }, fail);
+    db.collection('boxes').onSnapshot(s => { boxes = s.docs.map(x => ({id: x.id, ...x.data()})); scheduleRender(); }, fail);
+    db.doc('settings/cats').onSnapshot(s => {
+      const v = s.exists ? s.data() : null;
+      customCats = v && Array.isArray(v.list) ? v.list : [];
+      scheduleRender();
+    }, err => console.error(err));
+  })();
+})();
+</script>
+</body>
+</html>
